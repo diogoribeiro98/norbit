@@ -1,15 +1,18 @@
 import numpy as np
 from ..vector import vec3, cross
 
-def apocenter_position_and_velocity(a, e):
+def get_angular_momentum_vector(Omega,inc):
+    return vec3([ np.sin(inc)*np.cos(Omega) , -np.sin(inc)*np.sin(Omega) , -np.cos(inc)  ])
+
+def get_apocenter_position_and_velocity(a, e):
     r_apo  = a*(1+e) 
     v_apo  = np.sqrt(2/r_apo - 1/a) 
     return r_apo, v_apo
 
-def apocenter_unit_vectors(Omega, inc, omega):
+def get_apocenter_unit_vectors(Omega, inc, omega):
  
     #Angular momentum unit vector
-    L_vec = vec3([ np.sin(inc)*np.cos(Omega) , -np.sin(inc)*np.sin(Omega) , -np.cos(inc)  ])
+    L_vec = get_angular_momentum_vector(Omega,inc)
     
     #Line of ascending nodes unit vector
     anode = vec3([np.sin(Omega),np.cos(Omega),0])
