@@ -108,3 +108,5 @@ ENV/
 .vscode/
 .idea/
 
+#Local test folders
+tests_and_scripts/01_test_vector_class.py
