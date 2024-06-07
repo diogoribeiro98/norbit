@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "norbit"
+version = "0.1.0"
+readme = "README.rst"
+authors = [
+  {name = "dribeiro"}
+]
+license = {text = "MIT license"}
+dependencies = [
+  # Add your libraries here. Some typical examples:
+  # "numpy >= 1.20",
+  # "matplotlib >=3.7"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"*" = ["*.*"]
+
