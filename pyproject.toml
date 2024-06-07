@@ -11,9 +11,8 @@ authors = [
 ]
 license = {text = "MIT license"}
 dependencies = [
-  # Add your libraries here. Some typical examples:
-  # "numpy >= 1.20",
-  # "matplotlib >=3.7"
+  "numpy >= 1.20",
+  "matplotlib >=3.7"
 ]
 
 [tool.setuptools]
