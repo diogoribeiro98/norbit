@@ -3,11 +3,11 @@ from ..vector import vec3
 from ..vector import cross
 from ..physical_units import units
 from .star_data import star_data
+from .orbital_elements import get_angular_momentum_vector, get_apocenter_unit_vectors
+
 class star:
 
-    def __init__(self,
-                 name,
-                 dictionary = True):
+    def __init__(self, name, dictionary = True):
 
         if (star_data.get(name) == None) and (dictionary == True):
             error_message = "No star with name {} in the dictionary.".format(name)
@@ -46,16 +46,16 @@ class star:
             self.vp = np.sqrt(2/self.rp - 1/self.a)
 
             #Angular momentum vector of the orbit
-            self.L_vec = vec3([ np.sin(self.inc)*np.cos(self.Omega) , np.sin(self.inc)*np.sin(self.Omega) , np.cos(self.inc)  ])
+            self.L_vec = get_angular_momentum_vector(self.Omega, self.inc)
 
-            #Perigee and apogee position vector
-            self.rp_vec = vec3([-np.sin(self.Omega),np.cos(self.Omega),0])
-            self.rp_vec = self.rp_vec.rotate_along(self.L_vec,self.omega)
-            self.ra_vec = (-self.ra)*self.rp_vec
+            #Perigee and apogee position vectors
+            nr_apo, nv_apo = get_apocenter_unit_vectors(self.Omega, self.inc, self.omega)
+
+            self.ra_vec = self.ra*nr_apo
+            self.rp_vec = -self.rp*nr_apo
 
             #Velocity at apogee
-            self.va_vec = cross(self.L_vec,self.ra_vec)
-            self.va_vec = self.va*self.va_vec/self.va_vec.norm()
+            self.va_vec = self.va*nv_apo
 
     def info(self):
         print("S2 orbital parameters")
