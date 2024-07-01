@@ -19,7 +19,7 @@ from matplotlib.patches import Arrow, FancyArrowPatch
 pn_color_list = ['#e66971', '#224b8b']
 
 def pn_mural_plot(
-        x0       = 15/1000,   
+        x0       = -15/1000,   
         y0       = 80/1000,  
         yscale   = 0.22   ,  
         time_range      = None ,
