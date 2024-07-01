@@ -12,7 +12,8 @@ authors = [
 license = {text = "MIT license"}
 dependencies = [
   "numpy >= 1.20",
-  "matplotlib >=3.7"
+  "matplotlib >=3.7",
+  "scipy >= 1.13"
 ]
 
 [tool.setuptools]
