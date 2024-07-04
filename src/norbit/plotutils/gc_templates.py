@@ -5,16 +5,9 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 
 import matplotlib.pyplot as plt
-
-from matplotlib.transforms import TransformedBbox
-from mpl_toolkits.axes_grid1.inset_locator import BboxPatch
-from matplotlib.transforms import Bbox
 from matplotlib.path import Path
 from matplotlib.patches import ArrowStyle
-
-from matplotlib.transforms import BlendedGenericTransform
-
-from matplotlib.patches import Arrow, FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch
 
 pn_color_list = ['#e66971', '#224b8b']
 
