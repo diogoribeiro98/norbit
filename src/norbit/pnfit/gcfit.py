@@ -4,16 +4,14 @@ from lmfit import Minimizer
 
 from ..physical_units import units
 from ..pnutils.kepler_period import kepler_period
-from ..pnutils.orbital_projection import get_sky_projection
+from ..pnutils.orbital_projection import get_sky_projection, _metric
 from .file_reading_utils import get_line_index, readlines_from_to
-
 
 def p_weight(s):
     if s==0:
         return lambda r : r
     else:
         return lambda r: r*s/np.sqrt(r**2+s**2)
-
 
 class nPNFitterGC:
 
@@ -291,47 +289,83 @@ class nPNFitterGC:
         #Get model data depending on the model
         match model:
             case 'Newton':
+
+                metric = _metric( 
+                    A = (lambda x :  1),
+                    B = (lambda x :  1) ,
+                    D = (lambda x :  0) ,
+                )
+
                 sol = get_sky_projection( **orbital_params, **gc_params,
-                                 tmax = integration_max_time, 
-                                 orbit_pncor = False, 
-                                 light_pncor = False)
+                                tmax = integration_max_time, 
+                                orbit_pncor = False, 
+                                light_pncor = False,
+                                metric=metric,
+                                v_observer = vz)
+                
             case 'Schwarzschild':
+
+                metric = _metric( 
+                    A = (lambda x :  1-2/x),
+                    B = (lambda x :  1) ,
+                    D = (lambda x :  (2/x)/(1-2/x)) ,
+                )
+
                 sol = get_sky_projection( **orbital_params, **gc_params,
-                                 tmax = integration_max_time, 
-                                 orbit_pncor = True, 
-                                 light_pncor = True)
+                                tmax = integration_max_time, 
+                                orbit_pncor = True, 
+                                light_pncor = True,
+                                metric=metric,
+                                v_observer = vz)
             case 'Harmonic':
+
+                metric = _metric( 
+                    A = (lambda x :  ((2*x-1)/(2*x+1))**2 ),
+                    B = (lambda x :  (1+1/(2*x))**4) ,
+                    D = (lambda x :  0 ),
+                )
+
                 sol = get_sky_projection( **orbital_params, **gc_params,
                                  tmax = integration_max_time, 
                                  pn_coefficients_1st_order = np.array([-1, -1, 0, 4]),
                                  pn_coefficients_2nd_order = np.array([4, 0, 2, -2]),
                                  orbit_pncor = True, 
-                                 light_pncor = True)
+                                 light_pncor = True,
+                                 metric=metric,
+                                 v_observer = vz)
                 
             case 'fsp':
+
+                metric = _metric( 
+                    A = (lambda x :  1-2/x),
+                    B = (lambda x :  1) ,
+                    D = (lambda x :  (2/x)/(1-2/x)) ,
+                )
+
                 fsp = params['fsp']
                 sol = get_sky_projection( **orbital_params, **gc_params,
-                                 tmax = integration_max_time,
-                                 pn_coefficients_1st_order = np.array([-1, -1*fsp, 0, 4*fsp]),
-                                 pn_coefficients_2nd_order = np.array([4*fsp, 0, 2, -2]), 
-                                 orbit_pncor = True, 
-                                 light_pncor = False)
+                                tmax = integration_max_time,
+                                pn_coefficients_1st_order = np.array([-1, -1*fsp, 0, 4*fsp]),
+                                pn_coefficients_2nd_order = np.array([4*fsp, 0, 2, -2]), 
+                                orbit_pncor = True, 
+                                light_pncor = False,
+                                metric=metric,
+                                v_observer = vz)
             case _:
                 raise ValueError('CRITICAL ERROR: How did you get here?')
                 
         
         self.minimize_sol = sol
-
+        
         fx = sol.RA
         fy = sol.DEC
-        fv = sol.vz
-
+        fv = sol.vrs
 
         #
         # Calculate residuals vector fromd data
         #
 
-        #p = p_weight(s_weight)
+        p = p_weight(s_weight)
         
         residuals_vector_x = 0
         residuals_vector_y = 0
@@ -342,8 +376,8 @@ class nPNFitterGC:
             xmodel_gravity = -fx((self.astrometric_data['GRAVITY']['tdata'] - t0))  
             ymodel_gravity =  fy((self.astrometric_data['GRAVITY']['tdata'] - t0))  
         
-            residuals_vector_x_gravity =  (xmodel_gravity-self.astrometric_data['GRAVITY']['xdata'])/self.astrometric_data['GRAVITY']['xdata_err']
-            residuals_vector_y_gravity =  (ymodel_gravity-self.astrometric_data['GRAVITY']['ydata'])/self.astrometric_data['GRAVITY']['ydata_err']
+            residuals_vector_x_gravity =  p((xmodel_gravity-self.astrometric_data['GRAVITY']['xdata'])/self.astrometric_data['GRAVITY']['xdata_err'])
+            residuals_vector_y_gravity =  p((ymodel_gravity-self.astrometric_data['GRAVITY']['ydata'])/self.astrometric_data['GRAVITY']['ydata_err'])
         else:
             residuals_vector_x_gravity = []
             residuals_vector_y_gravity = []
@@ -356,8 +390,8 @@ class nPNFitterGC:
             #Drift in data
             xdata_drift = self.astrometric_data['NACO']['xdata'] - ( x0 + vx * (self.astrometric_data['NACO']['tdata']-2009.02))
             ydata_drift = self.astrometric_data['NACO']['ydata'] - ( y0 + vy * (self.astrometric_data['NACO']['tdata']-2009.02))
-            residuals_vector_x_naco =  (xmodel_naco-xdata_drift)/self.astrometric_data['NACO']['xdata_err']
-            residuals_vector_y_naco =  (ymodel_naco-ydata_drift)/self.astrometric_data['NACO']['ydata_err']
+            residuals_vector_x_naco =  p((xmodel_naco-xdata_drift)/self.astrometric_data['NACO']['xdata_err'])
+            residuals_vector_y_naco =  p((ymodel_naco-ydata_drift)/self.astrometric_data['NACO']['ydata_err'])
             
         else:
             residuals_vector_x_naco = []
@@ -365,7 +399,7 @@ class nPNFitterGC:
 
         if self.spectroscopic_data['SINFONI']['hasData'] == True and ignore_SINFONI==False:
             vmodel_sinfoni = fv((self.spectroscopic_data['SINFONI']['tdata'] - t0)) 
-            residuals_vector_v_sinfoni = (vmodel_sinfoni-(self.spectroscopic_data['SINFONI']['vdata']-vz))/self.spectroscopic_data['SINFONI']['vdata_err']
+            residuals_vector_v_sinfoni = p((vmodel_sinfoni-(self.spectroscopic_data['SINFONI']['vdata']))/self.spectroscopic_data['SINFONI']['vdata_err'])
         
         else:
             residuals_vector_v_sinfoni = []
@@ -400,10 +434,9 @@ class nPNFitterGC:
             (vx - vxprior[1])/vxprior_err[1] ,
             (vy - vyprior[1])/vyprior_err[1] ]  
 
+        prior_vz = [vz/5]
 
-
-        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA),axis=0)
-        #residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v),axis=0)
+        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA,prior_vz),axis=0)
         
         return residuals_vector
 
@@ -423,10 +456,56 @@ class nPNFitterGC:
             
             #Chisquared
             self.minimize_result =fitter.minimize(method = 'leastsq')
+            #self.minimize_result =fitter.minimize(method = 'nealder')
             
             return self.minimize_result 
         else:
             raise ValueError('ERROR: No model called {}. Allowed values are {}'.format(model,implemented_models))
 
+    def rerun(self, model='Newton', niter=50, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0):
+        fitter = Minimizer( self.residuals, 
+                                self.minimize_result.params, 
+                                max_nfev=niter, 
+                                fcn_kws={'model': model, 'ignore_NACO': ignore_NACO, 'ignore_GRAVITY': ignore_GRAVITY, 'ignore_SINFONI': ignore_SINFONI, 's_weight': s_weight})
+            
+        self.minimize_result =fitter.minimize(method = 'leastsq')
+
+        return self.minimize_result 
 
 
+        
+    #====================
+    # Not used functions
+    #====================
+
+    #
+    # Loading data functions
+    #
+
+    def load_astrometric_data(self, fname, instrument):
+        
+        try:
+            data = np.loadtxt(fname)
+        except:
+            return
+
+        self.astrometric_data[instrument]['tdata']     = np.array(data[:,0])
+        self.astrometric_data[instrument]['xdata']     = np.array(data[:,1])
+        self.astrometric_data[instrument]['xdata_err'] = np.array(data[:,2])
+        self.astrometric_data[instrument]['ydata']     = np.array(data[:,3])
+        self.astrometric_data[instrument]['ydata_err'] = np.array(data[:,4])
+
+        return 
+    
+    def load_spectroscopic_data(self,fname,instrument):
+        
+        try:
+            data = np.loadtxt(fname)
+        except:
+            return
+
+        self.spectroscopic_data[instrument]['tdata']     = np.array(data[:,0])
+        self.spectroscopic_data[instrument]['vdata']     = np.array(data[:,1])
+        self.spectroscopic_data[instrument]['vdata_err'] = np.array(data[:,2])
+
+        return

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import interpolate
 
-from ..vector import vec3, dot
+from ..vector import vec3, dot, norm
 from ..physical_units import units
 from .PNclass import nPNsolver
 
@@ -10,9 +10,17 @@ from .orbital_elements import get_apocenter_position_and_velocity
 from .observer_tetrad  import get_observer_tetrad
 from .kepler_period    import kepler_period
 
+class _metric:
+
+    def __init__(self,A,B,D):
+        self.A = A
+        self.B = B
+        self.D = D
+
+
 class _output:
 
-    def __init__(self,time,alpha,beta,xx,yy,zz,vxx,vyy,vzz):
+    def __init__(self,time,alpha,beta,xx,yy,zz,vxx,vyy,vzz,vrs):
 
         self.tmin = time[0]
         self.tmax = time[-1]
@@ -25,6 +33,24 @@ class _output:
         self.vx  = interpolate.interp1d(time,  vxx  )
         self.vy  = interpolate.interp1d(time,  vyy  )
         self.vz  = interpolate.interp1d(time,  vzz  )
+        self.vrs = interpolate.interp1d(time,  vrs  )
+
+
+def redshift_factor(r_vec,v_vec,metric):
+
+    r  = norm(r_vec)
+    v  = norm(v_vec)
+
+    nr = r_vec/norm(r_vec) 
+
+    return -metric.A(r) + v**2*metric.B(r) + dot(nr,v_vec)**2*metric.D(r)
+
+def redshift_prefactor(r_emmiter,r_observer, v_emmiter, v_observer, metric):
+        a1 = redshift_factor(r_observer,v_observer,metric)
+        a2 = redshift_factor(r_emmiter ,v_emmiter ,metric)
+        
+        return np.sqrt(a1/a2)
+
 
 def get_sky_projection(
         #Orbital elements
@@ -42,6 +68,8 @@ def get_sky_projection(
         tmax = None,
         r_transform = None,
         time_resolution = 1,
+        metric = None,
+        v_observer = 0.0
 ):
     """Returns the interpolating function for a given orbit as a function of the observer's time in arcseconds
 
@@ -64,7 +92,6 @@ def get_sky_projection(
     Returns:
         _type_: fx,fy,fz,tmax
     """
-    
     # Observer tetrad and position
     # Note: to match observational conventions, the observer is along 
     #       negative part of the z-axis
@@ -110,6 +137,7 @@ def get_sky_projection(
     alpha,beta = [], []
     xx,yy,zz      = [],[],[]
     vxx,vyy,vzz   = [],[],[]
+    vrs = []
 
     for itt in np.arange(0,len(solution.t)):
 
@@ -118,12 +146,15 @@ def get_sky_projection(
         x  = solution.y[0, itt]
         y  = solution.y[1, itt]
         z  = solution.y[2, itt]
-        vx = solution.y[3, itt]*units.c/1000.0
-        vy = solution.y[4, itt]*units.c/1000.0
-        vz = solution.y[5, itt]*units.c/1000.0
+        vx = solution.y[3, itt]
+        vy = solution.y[4, itt]
+        vz = solution.y[5, itt]
 
         #Get light reception angle and corresponding time delay
         deltat, light_vec = ode.deflection_position( vec3([x,y,z]) ,r_observer , pncor=light_pncor)
+
+        #Get corrected velocity (with redshift)
+        v_redshift = -(redshift_prefactor(vec3([x,y,z]),r_observer, vec3([vx,vy,vz]), vec3([0,0,v_observer*1000/units.c]), metric)*ode.dtdt0(vec3([x,y,z]),r_observer,vec3([vx,vy,vz]),vec3([0,0,v_observer*1000/units.c]))-1)
 
         #Append to lists
         time    .append(t+deltat)    
@@ -135,6 +166,7 @@ def get_sky_projection(
         vxx     .append(vx)
         vyy     .append(vy)
         vzz     .append(vz)
+        vrs     .append(v_redshift)
 
     #Convert time to years and distances to Astronomical units
     time =  np.array(time)
@@ -145,5 +177,10 @@ def get_sky_projection(
     yy = np.array(yy)*m/units.astronomical_unit 
     zz = np.array(zz)*m/units.astronomical_unit 
 
+    vxx = np.array(vxx)*units.c/1000.0
+    vyy = np.array(vyy)*units.c/1000.0
+    vzz = np.array(vzz)*units.c/1000.0
+    vrs = np.array(vrs)*units.c/1000.0
+
     #Return a class with functions
-    return _output(time,alpha,beta,xx,yy,zz,vxx,vyy,vzz)
+    return _output(time,alpha,beta,xx,yy,zz,vxx,vyy,vzz,vrs)

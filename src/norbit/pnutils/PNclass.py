@@ -153,3 +153,20 @@ class nPNsolver:
             delta_tau = Dnorm + pn1_x1_parallel_scalar
 
             return delta_tau , dxdtau 
+
+    def dAdr(self,r,v,sigma):    
+        n = r/norm(r)
+        t1 = (self.N1/3)*dot(v, cross(n,cross(sigma,n)))/norm(r)
+        t2 = -(self.T1 + self.V1 + self.N1 + self.H1)* dot(v,sigma+n)/( norm(r) *(1+dot(n,sigma)))
+
+        return t1+t2
+    
+    def dtdt0(self,ri,rf,vi,vf):
+        
+        D = (rf-ri)
+        Dnorm = norm(D)
+        nD = D/Dnorm
+
+        return 1/(1 - dot(nD,vf-vi)+ self.m*(self.dAdr(rf,vf,nD) - self.dAdr(ri,vi,nD)) )  
+        
+        
