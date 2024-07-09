@@ -188,4 +188,81 @@ def add_scale(axis,
 
 
 
+def plot_astrometric_data(ax,ax1,ax2,instrument, escale=1, color='black', fitter=None, plot_residuals=False):
+    
+    error_style = {'fmt': 'none', 'elinewidth' :0.8, 'capsize': 1.0, 'capthick': 0.8, 'ecolor': color}
+
+    if plot_residuals==False:
+        ax.errorbar(
+        x   =fitter.astrometric_data[instrument]['xdata'],
+        y   =fitter.astrometric_data[instrument]['ydata'],
+        xerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
+        yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
+        **error_style
+        )
+
+        ax1.errorbar(
+        x   =fitter.astrometric_data[instrument]['tdata'],
+        y   =fitter.astrometric_data[instrument]['xdata'],
+        yerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
+        **error_style    
+        )
+
+        ax2.errorbar(
+        x   =fitter.astrometric_data[instrument]['tdata'],
+        y   =fitter.astrometric_data[instrument]['ydata'],
+        yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
+        **error_style
+        )
+    
+    else:
+
+        xmodel  = -fitter.minimize_sol.RA(fitter.astrometric_data[instrument]['tdata']-fitter.minimize_result.params['t0'].value)
+        ymodel  = fitter.minimize_sol.DEC(fitter.astrometric_data[instrument]['tdata']-fitter.minimize_result.params['t0'].value)
+
+        ax.errorbar(
+        x   =fitter.astrometric_data[instrument]['xdata'],
+        y   =fitter.astrometric_data[instrument]['ydata'],
+        xerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
+        yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
+        **error_style
+        )
+
+        ax1.errorbar(
+        x   =fitter.astrometric_data[instrument]['tdata'],
+        y   =fitter.astrometric_data[instrument]['xdata']-xmodel,
+        yerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
+        **error_style    
+        )
+
+        ax2.errorbar(
+        x   =fitter.astrometric_data[instrument]['tdata'],
+        y   =fitter.astrometric_data[instrument]['ydata']-ymodel,
+        yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
+        **error_style
+        )
+
+
+def plot_spectroscopic_data(ax3,instrument,escale=1, color='black', fitter=None, plot_residuals=False):
+
+    error_style = {'fmt': 'none', 'elinewidth' :0.8, 'capsize': 1.0, 'capthick': 0.8,'ecolor': color}
+
+    if plot_residuals==False:
+        ax3.errorbar(
+        x   =fitter.spectroscopic_data[instrument]['tdata'],
+        y   =fitter.spectroscopic_data[instrument]['vdata'],
+        yerr=fitter.spectroscopic_data[instrument]['vdata_err']*escale,
+        **error_style
+        )
+    else:
+        vzmodel = fitter.minimize_sol.vrs(fitter.spectroscopic_data[instrument]['tdata']-fitter.minimize_result.params['t0'].value)
+
+        ax3.errorbar(
+        x   =fitter.spectroscopic_data[instrument]['tdata'],
+        y   =fitter.spectroscopic_data[instrument]['vdata']-vzmodel,
+        yerr=fitter.spectroscopic_data[instrument]['vdata_err']*escale,
+        **error_style
+        )
+
+
 

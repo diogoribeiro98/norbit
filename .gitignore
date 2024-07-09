@@ -110,3 +110,5 @@ ENV/
 
 #Local test folders
 tests_and_scripts/*
+
+docs/
