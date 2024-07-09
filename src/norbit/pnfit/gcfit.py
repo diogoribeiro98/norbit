@@ -5,6 +5,7 @@ from lmfit import Minimizer
 from ..physical_units import units
 from ..pnutils.kepler_period import kepler_period
 from ..pnutils.orbital_projection import get_sky_projection, _metric
+from ..pnutils.orbital_projection_fit import get_sky_projection_fit
 from .file_reading_utils import get_line_index, readlines_from_to
 
 def p_weight(s):
@@ -255,7 +256,7 @@ class nPNFitterGC:
 
         return
 
-    def residuals(self, params, model, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0):
+    def residuals(self, params, model, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0,model_resolution=1):
 
         #Get orbital parameters
         orbital_params = {
@@ -296,12 +297,13 @@ class nPNFitterGC:
                     D = (lambda x :  0) ,
                 )
 
-                sol = get_sky_projection( **orbital_params, **gc_params,
+                sol = get_sky_projection_fit( **orbital_params, **gc_params,
                                 tmax = integration_max_time, 
                                 orbit_pncor = False, 
                                 light_pncor = False,
                                 metric=metric,
-                                v_observer = vz)
+                                v_observer = vz,
+                                time_resolution=model_resolution)
                 
             case 'Schwarzschild':
 
@@ -311,12 +313,13 @@ class nPNFitterGC:
                     D = (lambda x :  (2/x)/(1-2/x)) ,
                 )
 
-                sol = get_sky_projection( **orbital_params, **gc_params,
+                sol = get_sky_projection_fit( **orbital_params, **gc_params,
                                 tmax = integration_max_time, 
                                 orbit_pncor = True, 
                                 light_pncor = True,
                                 metric=metric,
-                                v_observer = vz)
+                                v_observer = vz,
+                                time_resolution=model_resolution)
             case 'Harmonic':
 
                 metric = _metric( 
@@ -325,14 +328,15 @@ class nPNFitterGC:
                     D = (lambda x :  0 ),
                 )
 
-                sol = get_sky_projection( **orbital_params, **gc_params,
+                sol = get_sky_projection_fit( **orbital_params, **gc_params,
                                  tmax = integration_max_time, 
                                  pn_coefficients_1st_order = np.array([-1, -1, 0, 4]),
                                  pn_coefficients_2nd_order = np.array([4, 0, 2, -2]),
                                  orbit_pncor = True, 
                                  light_pncor = True,
                                  metric=metric,
-                                 v_observer = vz)
+                                 v_observer = vz,
+                                 time_resolution=model_resolution)
                 
             case 'fsp':
 
@@ -350,7 +354,8 @@ class nPNFitterGC:
                                 orbit_pncor = True, 
                                 light_pncor = False,
                                 metric=metric,
-                                v_observer = vz)
+                                v_observer = vz,
+                                time_resolution=model_resolution)
             case _:
                 raise ValueError('CRITICAL ERROR: How did you get here?')
                 
@@ -365,7 +370,8 @@ class nPNFitterGC:
         # Calculate residuals vector fromd data
         #
 
-        p = p_weight(s_weight)
+        #p = p_weight(s_weight)
+        p = lambda x: x
         
         residuals_vector_x = 0
         residuals_vector_y = 0
@@ -434,13 +440,13 @@ class nPNFitterGC:
             (vx - vxprior[1])/vxprior_err[1] ,
             (vy - vyprior[1])/vyprior_err[1] ]  
 
-        prior_vz = [vz/5]
+        #prior_vz = [vz/5]
 
-        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA,prior_vz),axis=0)
+        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA),axis=0)
         
         return residuals_vector
 
-    def find_minimum(self, model='Newton', niter=50, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0):
+    def find_minimum(self, model='Newton', niter=50, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0, method='leastsq',model_resolution=1):
 
         implemented_models = ('Newton', 'Schwarzschild', 'Harmonic', 'fsp')
         if model in implemented_models:
@@ -448,14 +454,14 @@ class nPNFitterGC:
             fitter = Minimizer( self.residuals, 
                                 self.params, 
                                 max_nfev=niter, 
-                                fcn_kws={'model': model, 'ignore_NACO': ignore_NACO, 'ignore_GRAVITY': ignore_GRAVITY, 'ignore_SINFONI': ignore_SINFONI, 's_weight': s_weight})
+                                fcn_kws={'model': model, 'ignore_NACO': ignore_NACO, 'ignore_GRAVITY': ignore_GRAVITY, 'ignore_SINFONI': ignore_SINFONI, 's_weight': s_weight, 'model_resolution': model_resolution})
             
             #MCMC
             #self.minimize_result = fitter.minimize(method = 'emcee', burn=10, nwalkers=100, steps=20, thin=1, is_weighted=True, progress=True,
             #run_mcmc_kwargs={'skip_initial_state_check':True})
             
             #Chisquared
-            self.minimize_result =fitter.minimize(method = 'leastsq')
+            self.minimize_result =fitter.minimize(method = method)
             #self.minimize_result =fitter.minimize(method = 'nealder')
             
             return self.minimize_result 
