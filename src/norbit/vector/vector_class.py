@@ -24,6 +24,7 @@ class vec3:
     #Useful functions
     def norm(self):
         """ Returns the euclidean norm of the vector
+        
         Returns:
             float : norm of the vector
         """
