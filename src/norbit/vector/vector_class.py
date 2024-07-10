@@ -1,9 +1,21 @@
 import numpy as np 
 
 class vec3:
+    """3D vector class suporting basic operations
 
+    Operations:
+        - addition
+        - subtraction
+        - scalar multiplication
+        - scalar division
+    """
     #Constructor
     def __init__(self, input_vector):
+        """Constructor for vector class
+
+        Args:
+            input_vector (array): array with x,y,z components
+        """
         self.x = input_vector[0]
         self.y = input_vector[1]
         self.z = input_vector[2]
