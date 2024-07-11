@@ -10,12 +10,7 @@ from .orbital_elements import get_apocenter_position_and_velocity
 from .observer_tetrad  import get_observer_tetrad
 from .kepler_period    import kepler_period
 
-class _metric:
-
-    def __init__(self,A,B,D):
-        self.A = A
-        self.B = B
-        self.D = D
+from .metric import schwarzschild_metric
 
 
 class _output:
@@ -35,41 +30,26 @@ class _output:
         self.vz  = interpolate.interp1d(time,  vzz  )
         self.vrs = interpolate.interp1d(time,  vrs  )
 
-
-def redshift_factor(r_vec,v_vec,metric):
-
-    r  = norm(r_vec)
-    v  = norm(v_vec)
-
-    nr = r_vec/norm(r_vec) 
-
-    return -metric.A(r) + v**2*metric.B(r) + dot(nr,v_vec)**2*metric.D(r)
-
-def redshift_prefactor(r_emmiter,r_observer, v_emmiter, v_observer, metric):
-        a1 = redshift_factor(r_observer,v_observer,metric)
-        a2 = redshift_factor(r_emmiter ,v_emmiter ,metric)
-        
-        return np.sqrt(a1/a2)
-
-
 def get_sky_projection(
         #Orbital elements
         Omega, inc, omega, a, e, 
         #Scale parameters and distance
         m  = units.Rg, 
-        R0 = units.R0/units.kiloparsec,
-        #GR correction parameters
-        orbit_pncor = False,
-        light_pncor = False,
-        pn_coefficients_1st_order = np.array([-1.0, -2.0, 3.0, 2.0]),
-        pn_coefficients_2nd_order = np.array([ 2.0,  0.0, 2.0, 4.0]),
+        R0 = units.R0/units.parsec,
+        #GR metric
+        metric = schwarzschild_metric,
+        #Post-newtonian corrections
+        orbit_pncor=False,
+        light_pncor=False,
+        light_travel_time=True,
+        gr_redshift=True,
+        sr_redshift=False,
         #Integration values
         tol  = 1e-10,
         tmax = None,
         r_transform = None,
         time_resolution = 1,
-        metric = None,
-        v_observer = 0.0
+        v_observer = [0., 0., 0.]
 ):
     """Returns the interpolating function for a given orbit as a function of the observer's time in arcseconds
 
@@ -93,18 +73,18 @@ def get_sky_projection(
         _type_: fx,fy,fz,tmax
     """
     # Observer tetrad and position
-    # Note: to match observational conventions, the observer is along 
-    #       negative part of the z-axis
+    # Note: to match observational conventions, the observer is along negative part of the z-axis
     nr,nb,na = get_observer_tetrad( theta_g_deg = 0 , phi_g_deg=180.0)
   
     #Transform quantitites to dimensionless quantities
     a   *= units.astronomical_unit/m 
-    R0  *= units.kiloparsec/m
+    R0  *= units.parsec/m
 
     #Get the position and velocity vector for the apocenter position
     nr_apo, nv_apo          = get_apocenter_unit_vectors(Omega,inc,omega)
     r_apo_norm, v_apo_norm  = get_apocenter_position_and_velocity(a,e)
     
+    #Radial coordinate transformation
     if r_transform != None:
         r_observer = -(r_transform(R0))*nr 
         r_apo_vec = r_transform(r_apo_norm)*nr_apo
@@ -114,6 +94,7 @@ def get_sky_projection(
         r_apo_vec = r_apo_norm*nr_apo
         v_apo_vec = v_apo_norm*nv_apo
 
+    #Maximum integration time in code units
     if tmax == None:
         tmax = kepler_period(a)
     else:
@@ -123,21 +104,18 @@ def get_sky_projection(
     ode = nPNsolver(
         initial_position= r_apo_vec.values,
         initial_velocity= v_apo_vec.values,
-        pncor= orbit_pncor, 
-        pn_coefficients_1st_order=pn_coefficients_1st_order,
-        pn_coefficients_2nd_order=pn_coefficients_2nd_order,
-        tol = tol)
+        metric=metric)
 
     #Time resolution for evaluations
     dt_eval = time_resolution*units.day/(m/units.c)
-    solution = ode.integrate(tf = tmax,dt_eval=dt_eval)
+    solution = ode.integrate(tf=tmax, dt_eval=dt_eval, tol=tol, pncor=orbit_pncor)
 
     #Retrieve the data
-    time       = []
-    alpha,beta = [], []
-    xx,yy,zz      = [],[],[]
-    vxx,vyy,vzz   = [],[],[]
-    vrs = []
+    time        = []
+    alpha,beta  = [], []
+    xx,yy,zz    = [],[],[]
+    vxx,vyy,vzz = [],[],[]
+    vrs         = []
 
     for itt in np.arange(0,len(solution.t)):
 
@@ -151,11 +129,12 @@ def get_sky_projection(
         vz = solution.y[5, itt]
 
         #Get light reception angle and corresponding time delay
-        deltat, light_vec = ode.deflection_position( vec3([x,y,z]) ,r_observer , pncor=light_pncor)
+        deltat, light_vec = ode.deflection_position(ri=vec3([x,y,z]),rf=r_observer ,pncor=light_pncor, light_travel_time=light_travel_time)
 
         #Get corrected velocity (with redshift)
-        v_redshift = -(redshift_prefactor(vec3([x,y,z]),r_observer, vec3([vx,vy,vz]), vec3([0,0,v_observer*1000/units.c]), metric)*ode.dtdt0(vec3([x,y,z]),r_observer,vec3([vx,vy,vz]),vec3([0,0,v_observer*1000/units.c]))-1)
-
+        v_obs = vec3(v_observer)*1000/units.c
+        v_redshift = ode.get_redshift_velocity(vec3([x,y,z]), r_observer, vec3([vx,vy,vz]), v_obs, sr_redshift=sr_redshift, gr_redshift=gr_redshift)
+        
         #Append to lists
         time    .append(t+deltat)    
         alpha   .append( dot(light_vec, na)/dot(light_vec, nr) * units.rad_to_as)
