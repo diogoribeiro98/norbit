@@ -4,18 +4,22 @@ from scipy.integrate import solve_ivp
 from ..vector.vector_class import vec3
 from ..vector.vector_functions import dot, norm, cross
 
+from .metric import metric, schwarzschild_metric, minkowsky_metric 
+
 class nPNsolver:
+    """Post Newtonian class for numerical integration of relativistic orbits. 
+
+    Returns:
+        _type_: _description_
+    """
 
     #Constructor
     def __init__(self , 
                  initial_position,
                  initial_velocity,
-                 pn_coefficients_1st_order = np.array([-1,-2, 3, 2]),
-                 pn_coefficients_2nd_order = np.array([ 2, 0, 2, 4]),
-                 pn_coefficients_3rd_order = np.array([ 0, 0, 4, 8]),
-                 pncor = True,
-                 tol = 1e-8):
-        
+                 metric = schwarzschild_metric
+                 ):
+    
         #===============
         # Setup routine
         #===============
@@ -23,38 +27,31 @@ class nPNsolver:
         #Problem scale
         self.m = 1.0
 
-        #Integration tolerance
-        self.tol = tol
-
         #Define the pn parameters
-        self.T1 = pn_coefficients_1st_order[0]
-        self.V1 = pn_coefficients_1st_order[1]
-        self.N1 = pn_coefficients_1st_order[2]
-        self.H1 = pn_coefficients_1st_order[3]
+        self.T1 = metric.pn_coefficients_1st_order[0]
+        self.V1 = metric.pn_coefficients_1st_order[1]
+        self.N1 = metric.pn_coefficients_1st_order[2]
+        self.H1 = metric.pn_coefficients_1st_order[3]
 
-        self.T2 =  pn_coefficients_2nd_order[0]
-        self.V2 =  pn_coefficients_2nd_order[1]
-        self.N2 =  pn_coefficients_2nd_order[2]
-        self.H2 =  pn_coefficients_2nd_order[3]
+        self.T2 =  metric.pn_coefficients_2nd_order[0]
+        self.V2 =  metric.pn_coefficients_2nd_order[1]
+        self.N2 =  metric.pn_coefficients_2nd_order[2]
+        self.H2 =  metric.pn_coefficients_2nd_order[3]
 
-        self.T3 =  pn_coefficients_3rd_order[0]
-        self.V3 =  pn_coefficients_3rd_order[1]
-        self.N3 =  pn_coefficients_3rd_order[2]
-        self.H3 =  pn_coefficients_3rd_order[3]
+        self.T3 =  metric.pn_coefficients_3rd_order[0]
+        self.V3 =  metric.pn_coefficients_3rd_order[1]
+        self.N3 =  metric.pn_coefficients_3rd_order[2]
+        self.H3 =  metric.pn_coefficients_3rd_order[3]
 
         #Initial position
         self.r = vec3(initial_position)
         self.v = vec3(initial_velocity)
 
-        #Define the associated force terms
-        if pncor == False:
-            self.Force = self.newtonForce
-        else:
-            self.Force = self.grForce
+        self.metric = metric
 
-    #==========
-    # Methods
-    #==========
+    #=========================
+    # EOM integration methods
+    #=========================
 
     def newtonForce(self):
         """ Classical Newtonian force law
@@ -91,11 +88,17 @@ class nPNsolver:
 
         return [ vx , vy , vz, Force.x, Force.y, Force.z ]
  
-    def integrate(self, tf = 2e6  , dt_eval = 80.0 ):
+    def integrate(self, tf=2e6, dt_eval = 80.0, tol=1e-8, pncor=True):
         """
         Integrate Equation of motion given the initial conditions of the problem. 
         The default final time is 1 year in dimensionless units for a central mass of 4 billion solar masses (SrgA*). The sampling of points is 30 minutes in dimensionless units for the same mass.
         """
+
+        #Define the associated force terms
+        if pncor == False:
+            self.Force  = self.newtonForce
+        else:
+            self.Force = self.grForce
 
         t_span = (0.0, tf+dt_eval)
         t = np.arange(0.0, tf+dt_eval, dt_eval)
@@ -106,11 +109,15 @@ class nPNsolver:
                     [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
                     method= 'RK45' ,
                     t_eval=t,
-                    rtol = self.tol)
+                    rtol = tol)
         
         return result
     
-    def deflection_position(self, ri , rf, pncor = True):
+    #===========================
+    # Light propagation methods
+    #===========================
+
+    def deflection_position(self, ri, rf, pncor=True, light_travel_time=True):
         """ Given an initial and final position, calculates the observed position on sky for the specific pn parameters.
         """
 
@@ -120,7 +127,7 @@ class nPNsolver:
         nD = D/Dnorm
 
         if pncor == False:
-            return Dnorm , nD  
+            return int(light_travel_time)*Dnorm , nD  
         else:
             #Angular momentum of photon orbit
             L     = cross(ri,rf)
@@ -152,7 +159,7 @@ class nPNsolver:
             #Time interval between emission and absorption
             delta_tau = Dnorm + pn1_x1_parallel_scalar
 
-            return delta_tau , dxdtau 
+            return int(light_travel_time)*delta_tau , dxdtau 
 
     def dAdr(self,r,v,sigma):    
         n = r/norm(r)
@@ -168,5 +175,35 @@ class nPNsolver:
         nD = D/Dnorm
 
         return 1/(1 - dot(nD,vf-vi)+ self.m*(self.dAdr(rf,vf,nD) - self.dAdr(ri,vi,nD)) )  
-        
-        
+    
+    def get_redshift_velocity(self,ri,rf,vi,vf, sr_redshift=True, gr_redshift=True):
+
+        D = (rf-ri)
+        Dnorm = norm(D)
+        nD = D/Dnorm
+
+        #If no GR nor SR effects are considered, return the 'galilean' redshift
+        if gr_redshift==False and sr_redshift==False:
+            return dot(nD,vf-vi)
+
+        #If we wish to consider uniquely the GR effects we need only evaluate the difference in the gtt metric components
+        elif gr_redshift==True and sr_redshift==False:
+            
+            dsdt_f = self.metric.redshift_factor(rf,0*vf)
+            dsdt_i = self.metric.redshift_factor(ri,0*vi)
+
+            return np.sqrt(dsdt_f/dsdt_i)-1
+
+        #If only the SR effects are wanted, we use the relativistic dopler formula (note that it is very close to the galilean one for low velocities)
+        elif gr_redshift==False and sr_redshift==True:
+            dsdt_f = self.metric.redshift_factor(rf,vf,gr_effects=False)
+            dsdt_i = self.metric.redshift_factor(ri,vi,gr_effects=False)
+            return np.sqrt(dsdt_f/dsdt_i)/(1 - dot(nD,vf-vi))-1
+
+        #If all effects are considered, we must evaluate the full expression for the redshift
+        else:
+            
+            dsdt_f = self.metric.redshift_factor(rf,vf)
+            dsdt_i = self.metric.redshift_factor(ri,vi)
+
+            return np.sqrt(dsdt_f/dsdt_i)*self.dtdt0(ri,rf,vi,vf)-1
