@@ -88,7 +88,7 @@ class nPNsolver:
 
         return [ vx , vy , vz, Force.x, Force.y, Force.z ]
  
-    def integrate(self, tf=2e6, dt_eval = 80.0, tol=1e-8, pncor=True):
+    def integrate(self, tf=2e6, dt_eval = 80.0, pncor=True, rtol=1e-13, atol=1e-20, t_eval = None):
         """
         Integrate Equation of motion given the initial conditions of the problem. 
         The default final time is 1 year in dimensionless units for a central mass of 4 billion solar masses (SrgA*). The sampling of points is 30 minutes in dimensionless units for the same mass.
@@ -100,16 +100,21 @@ class nPNsolver:
         else:
             self.Force = self.grForce
 
-        t_span = (0.0, tf+dt_eval)
-        t = np.arange(0.0, tf+dt_eval, dt_eval)
+        if t_eval!=None:
+            t = t_eval
+        else:
+            t_span = (0.0, tf+dt_eval)
+            t = np.arange(0.0, tf+dt_eval, dt_eval)
 
         result = solve_ivp(
                     self.EOM, 
                     t_span, 
                     [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
-                    method= 'RK45' ,
+                    method='RK45' ,
                     t_eval=t,
-                    rtol = tol)
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
         
         return result
     
