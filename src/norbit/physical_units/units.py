@@ -39,7 +39,7 @@ kilogram   = 1.0
 solar_mass = 1.98841e30*kilogram
 
 #Angular conversion factors
-rad_to_as = (180/np.pi)*60*60
+rad_to_as = (180.0/np.pi)*60*60
 as_to_rad = 1.0/rad_to_as
 deg_to_rad = np.pi/180.0
 rad_to_deg = 1.0/deg_to_rad
