@@ -18,6 +18,15 @@ def pn_mural_plot(
         time_range      = None ,
         comparison_plot = True,
         grid = True):
+    """
+    Return a list of random ingredients as strings.
+
+    :param kind: Optional "kind" of ingredients.
+    :type kind: list[str] or None
+    :return: The ingredients list.
+    :rtype: list[str]
+
+    """
 
     #width fraction helper quantity
     wf = 0.6
@@ -57,7 +66,7 @@ def pn_mural_plot(
         ax2.set_ylabel('$\\beta$ [$\mu as$]')
         ax2.set_ylim(y0-dy/2,y0+dy/2)
         ax3.set_xlabel('$t$ [years]')
-        ax3.set_ylabel('$v_z$ [$m/s$]')
+        ax3.set_ylabel('$v_z$ [$km/s$]')
 
     if time_range != None:
         ax1.set_xlim(time_range[0],time_range[1])
@@ -192,10 +201,18 @@ def plot_astrometric_data(ax,ax1,ax2,instrument, escale=1, color='black', fitter
     
     error_style = {'fmt': 'none', 'elinewidth' :0.8, 'capsize': 1.0, 'capthick': 0.8, 'ecolor': color}
 
+    #Correct data with appropriate offsets
+    if instrument=='NACO':
+        xcorr = (fitter.minimize_result.params['x0'].value+fitter.minimize_result.params['vx'].value*(fitter.astrometric_data[instrument]['tdata']-2009.02))
+        ycorr = (fitter.minimize_result.params['y0'].value+fitter.minimize_result.params['vy'].value*(fitter.astrometric_data[instrument]['tdata']-2009.02))
+    else:
+        xcorr=0
+        ycorr=0
+
     if plot_residuals==False:
         ax.errorbar(
-        x   =fitter.astrometric_data[instrument]['xdata'],
-        y   =fitter.astrometric_data[instrument]['ydata'],
+        x   =fitter.astrometric_data[instrument]['xdata']-xcorr,
+        y   =fitter.astrometric_data[instrument]['ydata']-ycorr,
         xerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
         yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
         **error_style
@@ -203,14 +220,14 @@ def plot_astrometric_data(ax,ax1,ax2,instrument, escale=1, color='black', fitter
 
         ax1.errorbar(
         x   =fitter.astrometric_data[instrument]['tdata'],
-        y   =fitter.astrometric_data[instrument]['xdata'],
+        y   =fitter.astrometric_data[instrument]['xdata']-xcorr,
         yerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
         **error_style    
         )
 
         ax2.errorbar(
         x   =fitter.astrometric_data[instrument]['tdata'],
-        y   =fitter.astrometric_data[instrument]['ydata'],
+        y   =fitter.astrometric_data[instrument]['ydata']-ycorr,
         yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
         **error_style
         )
@@ -230,14 +247,14 @@ def plot_astrometric_data(ax,ax1,ax2,instrument, escale=1, color='black', fitter
 
         ax1.errorbar(
         x   =fitter.astrometric_data[instrument]['tdata'],
-        y   =fitter.astrometric_data[instrument]['xdata']-xmodel,
+        y   =fitter.astrometric_data[instrument]['xdata']-xcorr-xmodel,
         yerr=fitter.astrometric_data[instrument]['xdata_err']*escale,
         **error_style    
         )
 
         ax2.errorbar(
         x   =fitter.astrometric_data[instrument]['tdata'],
-        y   =fitter.astrometric_data[instrument]['ydata']-ymodel,
+        y   =fitter.astrometric_data[instrument]['ydata']-ycorr-ymodel,
         yerr=fitter.astrometric_data[instrument]['ydata_err']*escale,
         **error_style
         )

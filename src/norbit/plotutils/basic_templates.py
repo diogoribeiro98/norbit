@@ -7,6 +7,11 @@ from .sizes import double_column_width
 from .sizes import golden_ratio, silver_ratio
 
 def Splot():
+    """Simple example of a thing!
+
+    Returns:
+        _type_: _description_
+    """
     
     #Configuration
     figsize = (single_column_width,single_column_width/golden_ratio)
@@ -17,6 +22,14 @@ def Splot():
     return fig, ax
 
 def Eplot(wf = 0.0):
+    """another
+
+    Args:
+        wf (float, optional): _description_. Defaults to 0.0.
+
+    Returns:
+        _type_: _description_
+    """
 
     #Configguration
     figsize = (double_column_width,(golden_ratio/2)*double_column_width)
