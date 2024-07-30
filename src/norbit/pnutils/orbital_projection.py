@@ -43,7 +43,6 @@ class _output_fit:
 
 
 class orbital_projection():
-
     def __init__(self):
         return
 
@@ -53,22 +52,21 @@ class orbital_projection():
         #Scale parameters and distance
         m  = units.Rg, 
         R0 = units.R0/units.parsec,
+        v_observer = [0., 0., 0.],
         #GR metric
         metric = schwarzschild_metric,
+        r_transform = None,
         #Post-newtonian corrections
         orbit_pncor=True,
         light_pncor=True,
         light_travel_time=True,
         gr_redshift=True,
-        sr_redshift=False,
+        sr_redshift=True,
         #Integration values
-        tol  = 4.5e-9,
         tmax = None,
-        r_transform = None,
-        time_resolution = 1.0,
-        v_observer = [0., 0., 0.]
+        time_resolution = 1.0
         ):
-        """Returns the interpolating function for a given orbit as a function of the observer's time in arcseconds
+        """Returns the interpolating function for a given orbit as a function of the observer's time.
 
         Args:
             Omega   (float): Longitude of the ascending node in radians
@@ -192,47 +190,23 @@ class orbital_projection():
         #Scale parameters and distance
         m  = units.Rg, 
         R0 = units.R0/units.parsec,
+        v_observer = [0., 0., 0.],
         #GR metric
         metric = schwarzschild_metric,
+        r_transform = None,
         #Post-newtonian corrections
         orbit_pncor=True,
         light_pncor=True,
         light_travel_time=True,
         gr_redshift=True,
-        sr_redshift=False,
+        sr_redshift=True,
         #Integration values
-        tol  = 4.5e-9,
         tmax = None,
-        r_transform = None,
-        time_resolution = 1.0,
-        v_observer = [0., 0., 0.]
+        interpolation_window = 1.0,             #in days
+        interpolation_window_resolution = 1/24, #in days
+        tdata = None                            #in years
         ):
-        """Returns the interpolating function for a given orbit as a function of the observer's time in arcseconds
 
-        Args:
-            Omega   (float): Longitude of the ascending node in radians
-            inc     (float): Inclination in radians
-            omega   (float): argument of pericenter passage in radians
-            a       (float): semimajor axis in Astronomical Units
-            e       (float): eccentricity (must be between 0 and 1)
-            m       (float, optional): Central body's gravitational radius in meters. Defaults to that of SgrA*.
-            R0      (float, optional): Distance between observer and central body. Defaults to GC distance in parsecs.
-            metric  (norbit.metric, optional): Spacetime metric. Defaults to schwarzschild_metric.
-            orbit_pncor (bool, optional): If True, considers the first order Post-newtonian effects in the EOM. Defaults to True.
-            light_pncor (bool, optional): If True, considers the first order Post-newtonian effects in the trajectory of photons connecting the orbiting body and the observer. Defaults to False.
-            light_travel_time (bool, optional): If False, assumes speed of light to be infinite. Defaults to True.
-            gr_redshift (bool, optional): If False, discards the gravitational field effects on the emmited photon's redshift. Defaults to True.
-            sr_redshift (bool, optional): If False, discards the special relativity effects from the emitter's motion on the photon's redshift. Defaults to False.
-            tol (float, optional): Tolerance for the integrator. Defaults to 1e-10.
-            tmax (float, optional): Maximum integration time in years. If None, uses the period of one single orbital revolution.
-            r_transform (lambda function, optional): Radial coordinate transformation as a lambda function.
-            time_resolution (float, optional): Time resolution of the integration in days. Defaults to 1.0.
-            v_observer (list, optional): Observer's velocity with respect to the central body. Defaults to [0., 0., 0.].
-
-        Returns:
-            output: class with interpolated function
-        """    
-    
         # Observer tetrad and position
         # Note: to match observational conventions, the observer is along negative part of the z-axis
         nr,nb,na = get_observer_tetrad( theta_g_deg = 0 , phi_g_deg=180.0)
@@ -268,8 +242,10 @@ class orbital_projection():
             metric=metric)
 
         #Time resolution for evaluations
-        dt_eval = time_resolution*units.day/(m/units.c)
-        solution = ode.integrate(tf=tmax, dt_eval=dt_eval, pncor=orbit_pncor)
+        twindow   = interpolation_window*units.day/(m/units.c) 
+        dt_window = interpolation_window_resolution*units.day/(m/units.c)
+        teval     = tdata*units.year/(m/units.c)
+        solution = ode.integrate_fit(tf=tmax, twindow=twindow, dtwindow=dt_window, pncor=orbit_pncor, teval=teval)
 
         #Retrieve the data
         time        = []
@@ -310,6 +286,10 @@ class orbital_projection():
         #Return a class with functions
         return _output_fit(time,alpha,beta,vrs)
 
+
+################################
+# Old function
+################################
 
 def get_sky_projection(
         #Orbital elements

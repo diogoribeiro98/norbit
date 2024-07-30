@@ -8,9 +8,6 @@ from .metric import metric, schwarzschild_metric, minkowsky_metric
 
 class nPNsolver:
     """Post Newtonian class for numerical integration of relativistic orbits. 
-
-    Returns:
-        _type_: _description_
     """
 
     #Constructor
@@ -107,14 +104,56 @@ class nPNsolver:
                     self.EOM, 
                     t_span, 
                     [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
-                    method='RK45' ,
-                    #method='DOP853',
+                    method='RK45',
                     t_eval=t,
                     rtol=rtol,
                     atol=atol,
                     dense_output=False)
         
         return result
+    
+    def integrate_fit(self, 
+                      teval,
+                      tf = 2e6,
+                      twindow  = None,
+                      dtwindow = None, 
+                      pncor=True, 
+                      rtol=1e-13, 
+                      atol=1e-20):
+
+
+        #Define the associated force terms
+        if pncor == False:
+            self.Force  = self.newtonForce
+        else:
+            self.Force = self.grForce
+
+        #Interval with proper resolution
+        teval_range = np.arange(-twindow/2,twindow/2+dtwindow,dtwindow)
+        
+        #t_span = (teval[0]-twindow-dtwindow, teval[-1] + twindow + dtwindow)
+        t_span = (0, tf+twindow+dtwindow)
+
+        t = [0.0]
+
+        for tdata in teval:
+            tlist = tdata + teval_range    
+            t.extend(tlist)
+ 
+        t = sorted(t)
+           
+        result = solve_ivp(
+                    self.EOM, 
+                    t_span ,
+                     [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
+                     method='RK45' ,
+                     #method='DOP853',
+                     t_eval=t,
+                     rtol=rtol,
+                     atol=atol,
+                     dense_output=False)
+        
+        return  result
     
     #===========================
     # Light propagation methods
