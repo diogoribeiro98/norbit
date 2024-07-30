@@ -4,9 +4,10 @@ from lmfit import Minimizer
 
 from ..physical_units import units
 from ..pnutils.kepler_period import kepler_period
-from ..pnutils.orbital_projection import get_sky_projection, _metric
-from ..pnutils.orbital_projection_fit import get_sky_projection_fit
+from ..pnutils.orbital_projection import orbital_projection
 from .file_reading_utils import get_line_index, readlines_from_to
+
+from ..pnutils.metric import minkowsky_metric, schwarzschild_metric
 
 def p_weight(s):
     if s==0:
@@ -29,6 +30,7 @@ class nPNFitterGC:
 
         #Fitting auxiliart tools
         self.params =None
+        self.orb = orbital_projection()
         
         #Create parameters according to chosen model
         self.params = Parameters()
@@ -157,6 +159,12 @@ class nPNFitterGC:
                 "vdata_err" : SINFONI[2]
             }
         }
+
+        #Get elapsed time since first measurement in order
+        self.teval = np.concatenate((self.astrometric_data['NACO']['tdata'],self.astrometric_data['GRAVITY']['tdata'],self.spectroscopic_data['SINFONI']['tdata']))
+        self.teval = np.sort(np.delete(self.teval,np.where(self.teval==None)))
+        #self.teval -= self.teval[0]
+        
         return 
 
     #
@@ -256,7 +264,13 @@ class nPNFitterGC:
 
         return
 
-    def residuals(self, params, model, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0,model_resolution=1):
+    def residuals(self, params, model, 
+                  ignore_NACO=False, 
+                  ignore_GRAVITY=False, 
+                  ignore_SINFONI=False, 
+                  s_weight=0.0,
+                  fit_window=1.0,
+                  window_resolution=1.0):
 
         #Get orbital parameters
         orbital_params = {
@@ -281,45 +295,51 @@ class nPNFitterGC:
 
         gc_params = {
         "m"  : m,
-        "R0" : params['R0']
+        "R0" : params['R0'],
+        #'v_observer' : [(-3.156e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,0.0]
+        'v_observer' : [0.0, 0.0, 0.0]
         }
- 
+    
         Pkepler = kepler_period(params['sma'].value*units.astronomical_unit/m)*m/units.c/units.year
         integration_max_time = (2*Pkepler + self.tdata_span)
+
+        #Find integration times
+        teval = (self.teval - t0)
 
         #Get model data depending on the model
         match model:
             case 'Newton':
-
-                metric = _metric( 
-                    A = (lambda x :  1),
-                    B = (lambda x :  1) ,
-                    D = (lambda x :  0) ,
-                )
-
-                sol = get_sky_projection_fit( **orbital_params, **gc_params,
-                                tmax = integration_max_time, 
-                                orbit_pncor = False, 
-                                light_pncor = False,
-                                metric=metric,
-                                v_observer = vz,
-                                time_resolution=model_resolution)
+                sol = self.orb.get_sky_projection_fit(   
+                    **orbital_params, **gc_params,
+                    orbit_pncor=False,
+                    light_pncor=False,
+                    light_travel_time=False,
+                    gr_redshift=False,
+                    sr_redshift=False,
+                    metric=minkowsky_metric,
+                    tmax = integration_max_time, 
+                    interpolation_window = fit_window,             #in days
+                    interpolation_window_resolution = window_resolution, #in days
+                    tdata = teval)
+                
                 
             case 'Schwarzschild':
-
-                metric = _metric( 
-                    A = (lambda x :  1-2/x),
-                    B = (lambda x :  1) ,
-                    D = (lambda x :  (2/x)/(1-2/x)) ,
-                )
-
-                sol = get_sky_projection_fit( **orbital_params, **gc_params,
-                                tmax = integration_max_time, 
-                                orbit_pncor = True, 
-                                light_pncor = True,
-                                metric=metric,
-                                v_observer = vz,
-                                time_resolution=model_resolution)
+                sol = self.orb.get_sky_projection_fit(   
+                    **orbital_params, **gc_params,
+                    orbit_pncor=True,
+                    light_pncor=True,
+                    light_travel_time=True,
+                    gr_redshift=True,
+                    sr_redshift=True,
+                    metric=schwarzschild_metric,
+                    tmax = integration_max_time, 
+                    interpolation_window = fit_window,             #in days
+                    interpolation_window_resolution = window_resolution, #in days
+                    tdata = teval)
+            case _:
+                raise ValueError('CRITICAL ERROR: How did you get here?')
+            
+        '''
             case 'Harmonic':
 
                 metric = _metric( 
@@ -356,10 +376,8 @@ class nPNFitterGC:
                                 metric=metric,
                                 v_observer = vz,
                                 time_resolution=model_resolution)
-            case _:
-                raise ValueError('CRITICAL ERROR: How did you get here?')
-                
-        
+        '''
+            
         self.minimize_sol = sol
         
         fx = sol.RA
@@ -370,8 +388,7 @@ class nPNFitterGC:
         # Calculate residuals vector fromd data
         #
 
-        #p = p_weight(s_weight)
-        p = lambda x: x
+        p = p_weight(s_weight)
         
         residuals_vector_x = 0
         residuals_vector_y = 0
@@ -440,21 +457,41 @@ class nPNFitterGC:
             (vx - vxprior[1])/vxprior_err[1] ,
             (vy - vyprior[1])/vyprior_err[1] ]  
 
-        #prior_vz = [vz/5]
+        prior_vz = [vz/5.]
 
-        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA),axis=0)
+        
+        #residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA),axis=0)
+        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v),axis=0)
         
         return residuals_vector
 
-    def find_minimum(self, model='Newton', niter=50, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0, method='leastsq',model_resolution=1):
+    def find_minimum(self, 
+                    model='Newton', 
+                    niter=50, 
+                    ignore_NACO=False, 
+                    ignore_GRAVITY=False, 
+                    ignore_SINFONI=False, 
+                    s_weight=0.0, 
+                    method='leastsq',
+                    window=2.0,                     
+                    model_resolution=0.25):
 
         implemented_models = ('Newton', 'Schwarzschild', 'Harmonic', 'fsp')
         if model in implemented_models:
 
+            func_args = {'model': model, 
+                                         'ignore_NACO': ignore_NACO, 
+                                         'ignore_GRAVITY': ignore_GRAVITY, 
+                                         'ignore_SINFONI': ignore_SINFONI, 
+                                         's_weight': s_weight, 
+                                         'window_resolution': model_resolution,
+                                         'fit_window': window
+                                         }
+
             fitter = Minimizer( self.residuals, 
                                 self.params, 
                                 max_nfev=niter, 
-                                fcn_kws={'model': model, 'ignore_NACO': ignore_NACO, 'ignore_GRAVITY': ignore_GRAVITY, 'ignore_SINFONI': ignore_SINFONI, 's_weight': s_weight, 'model_resolution': model_resolution})
+                                fcn_kws=func_args)
             
             #MCMC
             #self.minimize_result = fitter.minimize(method = 'emcee', burn=10, nwalkers=100, steps=20, thin=1, is_weighted=True, progress=True,
@@ -462,24 +499,39 @@ class nPNFitterGC:
             
             #Chisquared
             self.minimize_result =fitter.minimize(method = method)
-            #self.minimize_result =fitter.minimize(method = 'nealder')
             
             return self.minimize_result 
         else:
             raise ValueError('ERROR: No model called {}. Allowed values are {}'.format(model,implemented_models))
 
-    def rerun(self, model='Newton', niter=50, ignore_NACO=False, ignore_GRAVITY=False, ignore_SINFONI=False, s_weight=0.0):
+    def rerun(  self, 
+                model='Newton', 
+                niter=50, 
+                ignore_NACO=False, 
+                ignore_GRAVITY=False, 
+                ignore_SINFONI=False, 
+                s_weight=0.0,
+                method='leastsq',
+                window=2.0,                     
+                model_resolution=0.25):
+        
+        func_args = {  'model': model, 
+                        'ignore_NACO': ignore_NACO, 
+                        'ignore_GRAVITY': ignore_GRAVITY, 
+                        'ignore_SINFONI': ignore_SINFONI, 
+                        's_weight': s_weight, 
+                        'window_resolution': model_resolution,
+                        'fit_window': window
+                        }
+
         fitter = Minimizer( self.residuals, 
-                                self.minimize_result.params, 
-                                max_nfev=niter, 
-                                fcn_kws={'model': model, 'ignore_NACO': ignore_NACO, 'ignore_GRAVITY': ignore_GRAVITY, 'ignore_SINFONI': ignore_SINFONI, 's_weight': s_weight})
-            
-        self.minimize_result =fitter.minimize(method = 'leastsq')
+                            self.minimize_result.params, 
+                            max_nfev=niter, 
+                            fcn_kws= func_args)
+        self.minimize_result =fitter.minimize(method = method)
 
         return self.minimize_result 
 
-
-        
     #====================
     # Not used functions
     #====================
