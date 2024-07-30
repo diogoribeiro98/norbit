@@ -1,5 +1,6 @@
 import numpy as np
-from ..vector import vec3, cross
+from .kepler_period import kepler_period
+from ..vector import vec3, cross, norm
 
 def get_angular_momentum_vector(Omega,inc):
     """Returns the angular momentum vector associated with the specified orbital elements
@@ -120,3 +121,88 @@ def get_pericenter_unit_vectors(Omega, inc, omega):
 
     return nr_peri, nv_apo
 
+#
+# Solving Kepler's problem
+#
+
+#John Machin's method for the inital guess
+
+def solve_cubic(a, c, d):
+    
+    assert(a > 0 and c > 0)
+    
+    p = c/a
+    q = d/a
+    k = np.sqrt( q**2/4 + p**3/27 )
+    
+    return np.cbrt(-q/2 - k) + np.cbrt(-q/2 + k)
+
+# Machin's starting point for Newton's method
+# See johndcook.com/blog/2022/11/01/kepler-newton/
+def machin(e, M):
+    n = np.sqrt(5 + np.sqrt(16 + 9/e))
+    a = n*(e*(n**2 - 1)+1)/6
+    c = n*(1-e)
+    d = -M
+    s = solve_cubic(a, c, d)
+    return n*np.arcsin(s)    
+
+def eccentric_anomaly(e, M):
+    "Find E such that M = E - e sin E."
+   
+    assert(0 <= e < 1)
+    assert(0 <= M <= np.pi) 
+    
+    f = lambda E: E - e*np.sin(E) - M 
+    E = machin(e, M) 
+    tolerance = 1e-10 
+
+    while (abs(f(E)) > tolerance):
+        E -= f(E)/(1 - e*np.cos(E))
+    return E
+
+def true_anomaly(e,E):
+    return 2*np.arctan( np.sqrt((1+e)/(1-e)) * np.tan(E/2))
+
+
+def get_position_and_velocity_at_t0(
+        time_since_periapsis,
+        a,e,
+        Omega, inc, omega
+):
+    """Given the time since periapsis in dimensionless units, the orbit's semi-major axis and excentricity, returns the position and velocity vectors at that point 
+
+    Args:
+        time_since_periapsis (float): time since periapsis
+        a (float): Semi-major axis in dimensionless units 
+        e (float): Eccentricity (must be between 0 and 1)
+    """
+    
+    #Mean anomaly
+    Me = 2*np.pi* time_since_periapsis/kepler_period(a)
+
+    #Solve kepler's problem
+    E  = eccentric_anomaly(e, Me)
+    nu = true_anomaly(e,E)
+
+    #Get perifocal unit vectors
+    p, q = get_pericenter_unit_vectors(Omega, inc, omega)
+
+    #Get initial position in the perifocal frame
+    snu = np.sin(nu)
+    cnu = np.cos(nu)
+
+    d = a*(1-e**2)/(1+e*cnu)
+    
+    pos = d*( cnu*p + snu*q )
+
+    #Calculate normalized velocity vector
+    unitv = -snu*p + (e+cnu)*q
+    unitv /= norm(unitv)
+
+    #Velocity from vis-viva equation
+    vel = np.sqrt(2/d - 1/a)*unitv
+
+    return pos, vel
+
+    
