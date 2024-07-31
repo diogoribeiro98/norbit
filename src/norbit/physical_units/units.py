@@ -28,11 +28,10 @@ year    = 365.25*day
 meter = 1
 kilometer           = 1e4*meter
 
-parsec              = 3.08567758149e16*meter
-kiloparsec          = kilo*parsec
+astronomical_unit   = 149597870700*meter
+parsec              = 3600*180/np.pi*astronomical_unit
 megaparsec          = mega*parsec
 
-astronomical_unit   = 149597870700*meter
 
 #Mass units
 kilogram   = 1.0
