@@ -114,6 +114,7 @@ class nPNsolver:
     
     def integrate_fit(self, 
                       teval,
+                      ti=0.0,
                       tf = 2e6,
                       twindow  = None,
                       dtwindow = None, 
@@ -132,7 +133,7 @@ class nPNsolver:
         teval_range = np.arange(-twindow/2,twindow/2+dtwindow,dtwindow)
         
         #t_span = (teval[0]-twindow-dtwindow, teval[-1] + twindow + dtwindow)
-        t_span = (0, tf+twindow+dtwindow)
+        t_span = (ti, tf+twindow+dtwindow)
 
         t = [0.0]
 
