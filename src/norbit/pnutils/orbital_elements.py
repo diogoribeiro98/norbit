@@ -184,8 +184,9 @@ def get_position_and_velocity_at_t0(
     """
     
     #Mean anomaly
-    Me = 2*np.pi* time_since_periapsis/kepler_period(a)
-
+    #Me = 2*np.pi*np.mod(time_since_periapsis/kepler_period(a), 1.0)
+    Me = 2*np.pi*time_since_periapsis/kepler_period(a)
+    
     #Solve kepler's problem
     E  = eccentric_anomaly(e, Me)
     nu = true_anomaly(e,E)
@@ -197,16 +198,17 @@ def get_position_and_velocity_at_t0(
     snu = np.sin(nu)
     cnu = np.cos(nu)
 
-    d = a*(1-e**2)/(1+e*cnu)
+    rnorm = a*(1-e**2)/(1+e*cnu)
+    vnorm = np.sqrt(2/rnorm - 1/a)
     
-    pos = d*( cnu*p + snu*q )
+    pos = rnorm*( cnu*p + snu*q )
 
     #Calculate normalized velocity vector
     unitv = -snu*p + (e+cnu)*q
     unitv /= norm(unitv)
 
     #Velocity from vis-viva equation
-    vel = np.sqrt(2/d - 1/a)*unitv
+    vel = vnorm*unitv
 
     return pos, vel
 
