@@ -1,6 +1,7 @@
 import numpy as np
 from .kepler_period import kepler_period
 from ..vector import vec3, cross, norm
+from scipy import optimize
 
 def get_angular_momentum_vector(Omega,inc):
     """Returns the angular momentum vector associated with the specified orbital elements
