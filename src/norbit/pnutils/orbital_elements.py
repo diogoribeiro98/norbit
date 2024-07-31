@@ -151,14 +151,18 @@ def eccentric_anomaly(e, M):
     "Find E such that M = E - e sin E."
    
     assert(0 <= e < 1)
-    assert(0 <= M <= np.pi) 
-    
+  
     f = lambda E: E - e*np.sin(E) - M 
-    E = machin(e, M) 
-    tolerance = 1e-10 
+    fprime = lambda E: 1 - e*np.cos(E) 
+    
+    #Initial guess
+    E = M 
 
-    while (abs(f(E)) > tolerance):
-        E -= f(E)/(1 - e*np.cos(E))
+    #Note: if a better guess is needed, use the following line instead
+    #E = machin(e, M) 
+
+    E = optimize.newton(f,E,fprime=fprime, maxiter=500, rtol=1e-13)
+
     return E
 
 def true_anomaly(e,E):
