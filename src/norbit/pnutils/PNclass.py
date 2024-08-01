@@ -117,7 +117,7 @@ class nPNsolver:
                       ti=0.0,
                       tf = 2e6,
                       twindow  = None,
-                      dtwindow = None, 
+                      npoints = 10, 
                       pncor=True, 
                       rtol=1e-13, 
                       atol=1e-20):
@@ -129,31 +129,29 @@ class nPNsolver:
         else:
             self.Force = self.grForce
 
-        #Interval with proper resolution
-        teval_range = np.arange(-twindow/2,twindow/2+dtwindow,dtwindow)
+        #Interval with higher resolution
+        window   = np.linspace(-twindow,twindow,2*npoints+1)
+
+        t_span = (ti, tf+twindow)
         
-        #t_span = (teval[0]-twindow-dtwindow, teval[-1] + twindow + dtwindow)
-        t_span = (ti, tf+twindow+dtwindow)
-
-        t = [0.0]
-
+        t = []
         for tdata in teval:
-            tlist = tdata + teval_range    
+                        
+            tlist = tdata + window  
             t.extend(tlist)
  
-        t = sorted(t)
-           
+        tsorted = sorted(t)
+
         result = solve_ivp(
                     self.EOM, 
                     t_span ,
-                     [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
-                     method='RK45' ,
-                     #method='DOP853',
-                     t_eval=t,
-                     rtol=rtol,
-                     atol=atol,
-                     dense_output=False)
-        
+                    [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
+                    method='RK45',
+                    t_eval=tsorted,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+    
         return  result
     
     #===========================
