@@ -199,17 +199,11 @@ def get_position_and_velocity_at_t0(
     cnu = np.cos(nu)
 
     rnorm = a*(1-e**2)/(1+e*cnu)
-    vnorm = np.sqrt(2/rnorm - 1/a)
+    vnorm = 1/np.sqrt( a*(1-e**2) )
     
     pos = rnorm*( cnu*p + snu*q )
-
-    #Calculate normalized velocity vector
-    unitv = -snu*p + (e+cnu)*q
-    unitv /= norm(unitv)
-
-    #Velocity from vis-viva equation
-    vel = vnorm*unitv
-
+    vel = vnorm*(-snu*p + (e+cnu)*q)
+    
     return pos, vel
 
     
