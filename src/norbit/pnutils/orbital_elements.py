@@ -184,8 +184,7 @@ def get_position_and_velocity_at_t0(
     """
     
     #Mean anomaly
-    #Me = 2*np.pi*np.mod(time_since_periapsis/kepler_period(a), 1.0)
-    Me = 2*np.pi*time_since_periapsis/kepler_period(a)
+    Me = 2*np.pi*np.mod(time_since_periapsis/kepler_period(a), 1.0)
     
     #Solve kepler's problem
     E  = eccentric_anomaly(e, Me)
