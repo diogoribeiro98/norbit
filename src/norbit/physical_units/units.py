@@ -28,14 +28,33 @@ year    = 365.25*day
 meter = 1
 kilometer           = 1e4*meter
 
+solar_radius        = 696340*kilometer
+mercury_radius      = 2439.7*kilometer
+venus_radius        = 6051.8*kilometer 
+earth_radius        = 6371*kilometer 
+moon_radius         = 1737.4*kilometer
+mars_radius         = 3389.5*kilometer
+jupiter_radius      = 69911*kilometer
+saturn_radius       = 58232*kilometer
+uranus_radius       = 25362*kilometer 
+neptune_radius      = 24622*kilometer
+
 astronomical_unit   = 149597870700*meter
 parsec              = 3600*180/np.pi*astronomical_unit
 megaparsec          = mega*parsec
 
-
 #Mass units
-kilogram   = 1.0
-solar_mass = 1.98841e30*kilogram
+kilogram = 1.0
+
+solar_mass      = 1.98841e30*kilogram
+mercury_mass    = 3.285e23*kilogram
+venus_radius    = 4.867e24*kilogram
+earth_mass      = 5.972e24*kilogram
+moon_mass       = 7.3e22*kilogram
+jupiter_mass    = 1.89813e27*kilogram
+saturn_mass     = 5.683e26*kilogram
+uranus_mass     = 1.024e24*kilogram
+neptune_mass    = 8.681e25*kilogram
 
 #Angular conversion factors
 rad_to_as = (180.0/np.pi)*60*60
