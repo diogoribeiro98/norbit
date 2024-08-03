@@ -125,7 +125,8 @@ class nPNsolver:
                       npoints = 10, 
                       pncor=True, 
                       rtol=1e-13, 
-                      atol=1e-20):
+                      atol=1e-20,
+                      backward_integration=False):
 
 
         #Define the associated force terms
@@ -137,7 +138,7 @@ class nPNsolver:
         #Interval with higher resolution
         window   = np.linspace(-twindow,twindow,2*npoints+1)
 
-        t_span = (ti, tf+twindow)
+        t_span = (ti, tf)
         
         t = []
         for tdata in teval:
@@ -145,7 +146,16 @@ class nPNsolver:
             tlist = tdata + window  
             t.extend(tlist)
  
-        tsorted = sorted(t)
+        tsorted = np.asarray(sorted(t))
+
+        #Correct for points outside integration limits
+        if backward_integration==False:
+            tsorted = tsorted[(tsorted>ti) & (tsorted<tf)]
+            revertv = 1
+        elif backward_integration==True:
+            tsorted = tsorted[(tsorted>tf) & (tsorted<ti)]
+            tsorted = -np.sort(-tsorted)
+        
 
         result = solve_ivp(
                     self.EOM, 
