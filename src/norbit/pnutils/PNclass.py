@@ -41,13 +41,18 @@ class nPNsolver:
         self.H3 =  metric.pn_coefficients_3rd_order[3]
 
         #Initial position
+        self.r_ini = vec3(initial_position)
+        self.v_ini = vec3(initial_velocity)
+
+        #Current position
         self.r = vec3(initial_position)
         self.v = vec3(initial_velocity)
+
 
         self.metric = metric
 
     #=========================
-    # EOM integration methods
+    # Equations of motion
     #=========================
 
     def newtonForce(self):
@@ -103,7 +108,7 @@ class nPNsolver:
         result = solve_ivp(
                     self.EOM, 
                     t_span, 
-                    [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
                     method='RK45',
                     t_eval=t,
                     rtol=rtol,
@@ -145,7 +150,7 @@ class nPNsolver:
         result = solve_ivp(
                     self.EOM, 
                     t_span ,
-                    [ self.r.x , self.r.y , self.r.z , self.v.x , self.v.y , self.v.z  ],
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
                     method='RK45',
                     t_eval=tsorted,
                     rtol=rtol,
