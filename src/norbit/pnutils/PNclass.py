@@ -103,6 +103,19 @@ class nPNsolver:
 
         return [ vx , vy , vz, Force.x, Force.y, Force.z ]
  
+    #=========================
+    # Integration methods
+    #=========================
+
+    # Two integration methods exist for solving the equations of motion.
+    # 
+    # 1. The `integrate` method is the default integrator. It integrates the equations
+    # of motion in a given time interval with the specified resolution.
+    # 
+    # 2. The `integrate_fit` method is specifically designed to do orbital fits by 
+    # evaluating the integration around specified points. It allows both forward and 
+    # backward integration.
+
     def integrate(self,
                   ti=0.0, 
                   tf=2e6, 
@@ -235,12 +248,11 @@ class nPNsolver:
                       teval,
                       ti=0.0,
                       tf = 2e6,
-                      twindow  = None,
-                      npoints = 10, 
+                      twindow  = 80,
+                      npoints = 24, 
                       pncor=True, 
                       rtol=1e-13, 
-                      atol=1e-20,
-                      backward_integration=False):
+                      atol=1e-20):
 
 
         #Define the associated force terms
@@ -249,40 +261,114 @@ class nPNsolver:
         else:
             self.Force = self.grForce
 
-        #Interval with higher resolution
+        #Create list of evaluation points around input times
         window   = np.linspace(-twindow,twindow,2*npoints+1)
-
-        t_span = (ti, tf)
         
-        t = []
-        for tdata in teval:
-                        
-            tlist = tdata + window  
-            t.extend(tlist)
+        tlist = []
+        for t in teval:
+            tpoints = t + window  
+            tlist.extend(tpoints)
+
+        #Sort values
+        tsorted = np.asarray(sorted(tlist))
+
+        print('range:',  teval[0],teval[-1])
+
+        #Check if backwards integration is needed
+        if (min(tsorted) < 0.0) & (max(tsorted) > 0.0):
+            print('Requires backward and forward integration')
+
+            neg_tspan = ( 0.0, min(tsorted) )
+            pos_tspan = ( 0.0, max(tsorted) )
  
-        tsorted = np.asarray(sorted(t))
+            #Split sorted times into negative and positive values
+            neg_teval = tsorted[tsorted<0]
+            pos_teval = tsorted[tsorted>=0]
 
-        #Correct for points outside integration limits
-        if backward_integration==False:
-            tsorted = tsorted[(tsorted>ti) & (tsorted<tf)]
-            revertv = 1
-        elif backward_integration==True:
-            tsorted = tsorted[(tsorted>tf) & (tsorted<ti)]
-            tsorted = -np.sort(-tsorted)
-        
+            #Revert negative values and do backwards integration
+            print('Performin backward integration')
 
-        result = solve_ivp(
+            neg_teval = -np.sort(-neg_teval)
+
+            neg_result = solve_ivp(
                     self.EOM, 
-                    t_span ,
+                    neg_tspan ,
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    method='RK45',
+                    t_eval=neg_teval,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+
+            #Integrate forward
+            print('Performin forward integration')
+            pos_result = solve_ivp(
+                    self.EOM, 
+                    pos_tspan ,
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    method='RK45',
+                    t_eval=pos_teval,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+    
+
+            #Concatenate the points from both solutions
+            t = np.hstack((neg_result.t,pos_result.t))
+            y = np.hstack((neg_result.y,pos_result.y))
+            
+            
+            y = y[:,t.argsort()]
+            t = np.sort(t)
+        
+            return _solver_output(t,y)
+
+        #If not forward integration suffices
+        elif (min(tsorted) < 0.0) & (max(tsorted) < 0.0):
+            print('ONLY backward integration required')
+            
+            tspan = ( 0.0 , min(tsorted) )
+
+            #Revert negative values and do backwards integration
+            tsorted = -np.sort(-tsorted)
+
+            result = solve_ivp(
+                    self.EOM, 
+                    tspan ,
                     [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
                     method='RK45',
                     t_eval=tsorted,
                     rtol=rtol,
                     atol=atol,
                     dense_output=False)
-    
-        return  result
-    
+
+            #reorder negative solution
+            y = result.y[:,result.t.argsort()]
+            t = np.sort(result.t)
+
+            return _solver_output(t,y)
+
+        elif (min(tsorted) > 0.0) & (max(tsorted) > 0.0):
+
+            print('NO backward integration required')
+
+            tspan = (     0.0     , max(tsorted) )
+
+            result = solve_ivp(
+                    self.EOM, 
+                    tspan ,
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    method='RK45',
+                    t_eval=tsorted,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+            
+            return _solver_output(result.t,result.y)
+
+        else:
+            raise ValueError('CRITICAL ERROR: How did you get here?')
+
     #===========================
     # Light propagation methods
     #===========================
