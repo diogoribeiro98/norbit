@@ -26,7 +26,7 @@ year    = 365.25*day
 
 #Lenght units
 meter = 1
-kilometer           = 1e4*meter
+kilometer           = 1e3*meter
 
 solar_radius        = 696340*kilometer
 mercury_radius      = 2439.7*kilometer
