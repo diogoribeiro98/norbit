@@ -6,6 +6,20 @@ from ..vector.vector_functions import dot, norm, cross
 
 from .metric import metric, schwarzschild_metric, minkowsky_metric 
 
+class _solver_output:
+    """Helper class to store integration result
+    """
+
+    def __init__(self,t,y):
+        
+        self.t  = t
+        self.x  = y[0,:]
+        self.y  = y[1,:]
+        self.z  = y[2,:]
+        self.vx = y[3,:]
+        self.vy = y[4,:]
+        self.vz = y[5,:]
+        
 class nPNsolver:
     """Post Newtonian class for numerical integration of relativistic orbits. 
     """
@@ -48,7 +62,6 @@ class nPNsolver:
         self.r = vec3(initial_position)
         self.v = vec3(initial_velocity)
 
-
         self.metric = metric
 
     #=========================
@@ -90,33 +103,134 @@ class nPNsolver:
 
         return [ vx , vy , vz, Force.x, Force.y, Force.z ]
  
-    def integrate(self, tf=2e6, dt_eval = 80.0, pncor=True, rtol=1e-13, atol=1e-20):
+    def integrate(self,
+                  ti=0.0, 
+                  tf=2e6, 
+                  dt_eval = 80.0, 
+                  pncor=True, 
+                  rtol=1e-13, 
+                  atol=1e-20):
         """
         Integrate Equation of motion given the initial conditions of the problem. 
-        The default final time is 1 year in dimensionless units for a central mass of 4 billion solar masses (SrgA*). The sampling of points is 30 minutes in dimensionless units for the same mass.
-        """
+        The default final time is 1 year in dimensionless units for a central mass of 
+        4 billion solar masses (SrgA*). The sampling of points is 30 minutes in 
+        dimensionless units for the same mass.
 
+        Args:
+            ti      (float, optional): Initial time of integration. Defaults to 0.0.
+            tf      (float, optional): Final time of integration. Defaults to 2e6 (1 year in SgrA* dimensionless units)
+            dt_eval (float, optional): Time step for saved points. Defaults to 80.0 (1 day in SgrA* dimensionless units)
+            pncor   (bool,  optional): If True, considers the 1PN order correction to the motion. Defaults to True.
+            rtol    (float, optional): Relative integration tolerance. Defaults to 1e-13.
+            atol    (float, optional): Absolute integration tolerance. Defaults to 1e-20.
+
+        Returns:
+            _solver_output: output class with integration result
+        """
+       
         #Define the associated force terms
         if pncor == False:
             self.Force  = self.newtonForce
         else:
             self.Force = self.grForce
 
-        t_span = (0.0, tf+dt_eval)
-        t = np.arange(0.0, tf+dt_eval, dt_eval)
+        #Create tspan and evaluation points
+        t = np.arange(ti, tf, dt_eval)
 
-        result = solve_ivp(
+        #Check if backwards integration is needed
+        if (ti < 0.0) & (tf > 0.0):
+            
+            print('Requires backward and forward integration')
+
+            #Negative and positive integration time spans
+            neg_tspan = ( 0.0, ti )
+            pos_tspan = ( 0.0, tf )
+
+            #Split sorted times into negative and positive values
+            neg_teval = t[t<0]
+            pos_teval = t[t>=0]
+
+            #Revert negative values and do backwards integration
+            neg_teval = -np.sort(-neg_teval)
+
+            print('Backward integration')
+            neg_result = solve_ivp(
                     self.EOM, 
-                    t_span, 
+                    neg_tspan ,
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    method='RK45',
+                    t_eval=neg_teval,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+
+            #Integrate forward
+            print('Forward integration')
+            pos_result = solve_ivp(
+                    self.EOM, 
+                    pos_tspan ,
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    method='RK45',
+                    t_eval=pos_teval,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+
+            #Concatenate the points from both solutions
+            t = np.hstack((neg_result.t,pos_result.t))
+            y = np.hstack((neg_result.y,pos_result.y))
+            
+            y = y[:,t.argsort()]
+            t = np.sort(t)
+
+            return _solver_output(t,y)
+
+        #If not forward integration suffices
+        elif (ti < 0.0) & (tf <= 0.0):
+            print('ONLY backward integration required')
+            
+            tspan = ( 0.0 , ti )
+
+            #Revert negative values and do backwards integration
+            t = -np.sort(-t)
+
+            result = solve_ivp(
+                    self.EOM, 
+                    tspan ,
                     [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
                     method='RK45',
                     t_eval=t,
                     rtol=rtol,
                     atol=atol,
                     dense_output=False)
-        
-        return result
-    
+
+            #reorder negative solution
+            y = result.y[:,result.t.argsort()]
+            t = np.sort(result.t)
+
+            return _solver_output(t,y)
+
+        elif (ti >= 0.0) & (tf > 0.0):
+
+            print('NO backward integration required')
+
+            tspan = ( 0.0, tf )
+
+            result = solve_ivp(
+                    self.EOM, 
+                    tspan ,
+                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    method='RK45',
+                    t_eval=t,
+                    rtol=rtol,
+                    atol=atol,
+                    dense_output=False)
+            
+            return _solver_output(result.t,result.y)
+
+        else:
+            raise ValueError('CRITICAL ERROR: How did you get here?')
+
     def integrate_fit(self, 
                       teval,
                       ti=0.0,
