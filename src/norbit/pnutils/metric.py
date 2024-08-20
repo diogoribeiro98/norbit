@@ -2,7 +2,7 @@ from ..vector import vec3, dot, norm
 import numpy as np
 
 class metric:
-    """_summary_
+    """A class for defining GR metrics in cartesian form.
     """
     def __init__(self,
                  A,B,D,
@@ -22,6 +22,16 @@ class metric:
         self.pn_coefficients_3rd_order = np.array(pn_coefficients_3rd_order)
 
     def redshift_factor(self, r_vec, v_vec, gr_effects=True):
+        """Calculate redshift factor associated with a specific position and velocity of the emitter
+
+        Args:
+            r_vec (vec3): 3d vector representing the position in space
+            v_vec (vec3): 3d vector representing the velocity of the emitter
+            gr_effects (bool, optional): If False, only special relativity effects are calculated. Defaults to True.
+
+        Returns:
+            _type_: _description_
+        """
   
         r  = norm(r_vec)
         v  = norm(v_vec)
