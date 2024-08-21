@@ -246,8 +246,6 @@ class nPNsolver:
 
     def integrate_fit(self, 
                       teval,
-                      ti=0.0,
-                      tf = 2e6,
                       twindow  = 80,
                       npoints = 24, 
                       pncor=True, 
