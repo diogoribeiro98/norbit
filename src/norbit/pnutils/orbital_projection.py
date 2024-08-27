@@ -334,6 +334,95 @@ class orbital_projection():
         return _output_fit(time,alpha,beta,vrs)
 
 
+    def get_sky_projection_fit_code_comparison(self,
+        #Orbital elements
+        Omega, inc, omega, a, e, time_to_peri,
+        #Scale parameters and distance
+        m  = units.Rg, 
+        R0 = units.R0/units.parsec,
+        v_observer = [0., 0., 0.],
+        #GR metric
+        metric = schwarzschild_metric,
+        r_transform = None,
+        #Post-newtonian corrections
+        orbit_pncor=False,
+        light_pncor=False,
+        light_travel_time=False,
+        gr_redshift=True,
+        sr_redshift=True,
+        #Integration values
+        tdata = None,                            
+        interpolation_window = 0.4,             
+        interpolation_window_npoints = 12,      
+        ):
+
+        # Observer tetrad and position
+        # Note: to match observational conventions, the observer is along negative part of the z-axis
+        nr,_,_ = get_observer_tetrad( theta_g_deg = 0 , phi_g_deg=180.0)
+    
+        #Transform quantitites to dimensionless quantities
+        a   *= units.astronomical_unit/m 
+        R0  *= units.parsec/m
+
+        time_to_peri *= units.year/(m/units.c)
+        
+        r_observer = -R0*nr 
+        rini, vini = get_position_and_velocity_at_t0(-time_to_peri,a,e,Omega,inc,omega)
+                
+        #Define integral problem
+        ode = nPNsolver(
+            initial_position= rini.values,
+            initial_velocity= vini.values,
+            metric=metric)
+
+        #Time resolution for evaluations
+        twindow   = interpolation_window*units.day/(m/units.c) 
+        teval     = tdata*units.year/(m/units.c)
+        
+        sol = ode.integrate_fit(
+            teval=teval,
+            twindow=twindow, 
+            npoints=interpolation_window_npoints,
+            pncor=orbit_pncor)
+        
+        #Retrieve the data
+        time        = []
+        alpha,beta  = [], []
+        vrs         = []
+
+        for itt in np.arange(0,len(sol.t)):
+
+            #Get position and velocity
+            t  = sol.t[itt]
+            x  = sol.x[itt]
+            y  = sol.y[itt]
+            z  = sol.z[itt]
+            vx = sol.vx[itt]
+            vy = sol.vy[itt]
+            vz = sol.vz[itt]
+
+            #Get light reception angle and corresponding time delay
+            deltat = z 
+
+            #Get corrected velocity (with redshift)
+            v_redshift  = (1 + vz)/np.sqrt(1-vx**2-vy**2-vz**2)-1
+            
+            #Append to lists
+            time    .append(t+deltat)    
+            alpha   .append( x/(r_observer.z)*units.rad_to_as)
+            beta    .append( -y/(r_observer.z)*units.rad_to_as)
+            vrs     .append(v_redshift)
+
+        #Convert time to years and distances to Astronomical units
+        time =  np.array(time)
+        #time -= deltat_init 
+        time *= (m/units.c)/units.year
+        vrs = np.array(vrs)*units.c/1000.0
+
+        #Return a class with functions
+        return _output_fit(time,alpha,beta,vrs)
+
+
 ################################
 # Old functions
 ################################
