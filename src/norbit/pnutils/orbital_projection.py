@@ -33,7 +33,7 @@ class _output:
         self.vrs = interpolate.interp1d(time,  vrs  )
 
 class _output_fit:
-    """Simplified output helper class
+    """Simplified output helper class for fitting routine
     """
 
     def __init__(self,time,alpha,beta,vrs):
@@ -44,6 +44,7 @@ class _output_fit:
         self.RA  = interpolate.interp1d(time,  alpha)
         self.DEC = interpolate.interp1d(time,  beta )
         self.vrs = interpolate.interp1d(time,  vrs  )
+
 
 class orbital_projection():
 
@@ -226,7 +227,8 @@ class orbital_projection():
         interpolation_window = 0.4,             
         interpolation_window_npoints = 12,      
         ):
-        """_summary_
+        """
+        Returns the interpolating function for a given orbit as a function of the observer's time. 
 
         Args:
             Omega (float): Longitude of the ascending node in radians
@@ -252,9 +254,6 @@ class orbital_projection():
         Returns:
             _output_fit: class with interpolated quantities for fitting
         """
-
-        if tdata==None:
-            raise ValueError("tdata must be a non-empty list")
 
         # Observer tetrad and position
         # Note: to match observational conventions, the observer is along negative part of the z-axis
@@ -305,7 +304,6 @@ class orbital_projection():
             vy = sol.vy[itt]
             vz = sol.vz[itt]
 
-          
             #Get light reception angle and corresponding time delay
             deltat, light_vec = ode.deflection_position(ri=vec3([x,y,z]),rf=r_observer ,pncor=light_pncor, light_travel_time=light_travel_time)
 
@@ -325,7 +323,6 @@ class orbital_projection():
             #alpha   .append( x/(r_observer.z)*units.rad_to_as)
             #beta    .append( -y/(r_observer.z)*units.rad_to_as)
             #vrs     .append(vz)
-
 
         #Convert time to years and distances to Astronomical units
         time =  np.array(time)
