@@ -153,7 +153,7 @@ class nPNsolver:
         #Check if backwards integration is needed
         if (ti < 0.0) & (tf > 0.0):
             
-            print('Requires backward and forward integration')
+            #print('Requires backward and forward integration')
 
             #Negative and positive integration time spans
             neg_tspan = ( 0.0, ti )
@@ -166,7 +166,7 @@ class nPNsolver:
             #Revert negative values and do backwards integration
             neg_teval = -np.sort(-neg_teval)
 
-            print('Backward integration')
+            #print('Backward integration')
             neg_result = solve_ivp(
                     self.EOM, 
                     neg_tspan ,
@@ -178,7 +178,7 @@ class nPNsolver:
                     dense_output=False)
 
             #Integrate forward
-            print('Forward integration')
+            #print('Forward integration')
             pos_result = solve_ivp(
                     self.EOM, 
                     pos_tspan ,
@@ -200,7 +200,7 @@ class nPNsolver:
 
         #If not forward integration suffices
         elif (ti < 0.0) & (tf <= 0.0):
-            print('ONLY backward integration required')
+            #print('ONLY backward integration required')
             
             tspan = ( 0.0 , ti )
 
@@ -225,7 +225,7 @@ class nPNsolver:
 
         elif (ti >= 0.0) & (tf > 0.0):
 
-            print('NO backward integration required')
+            #print('NO backward integration required')
 
             tspan = ( 0.0, tf )
 
@@ -246,7 +246,7 @@ class nPNsolver:
 
     def integrate_fit(self, 
                       teval,
-                      twindow  = 80,
+                      twindow = 80,
                       npoints = 24, 
                       pncor=True, 
                       rtol=1e-13, 
@@ -270,11 +270,9 @@ class nPNsolver:
         #Sort values
         tsorted = np.asarray(sorted(tlist))
 
-        print('range:',  teval[0],teval[-1])
-
         #Check if backwards integration is needed
         if (min(tsorted) < 0.0) & (max(tsorted) > 0.0):
-            print('Requires backward and forward integration')
+            #print('Requires backward and forward integration')
 
             neg_tspan = ( 0.0, min(tsorted) )
             pos_tspan = ( 0.0, max(tsorted) )
@@ -284,7 +282,7 @@ class nPNsolver:
             pos_teval = tsorted[tsorted>=0]
 
             #Revert negative values and do backwards integration
-            print('Performin backward integration')
+            #print('Performin backward integration')
 
             neg_teval = -np.sort(-neg_teval)
 
@@ -299,7 +297,7 @@ class nPNsolver:
                     dense_output=False)
 
             #Integrate forward
-            print('Performin forward integration')
+            #print('Performin forward integration')
             pos_result = solve_ivp(
                     self.EOM, 
                     pos_tspan ,
@@ -323,7 +321,7 @@ class nPNsolver:
 
         #If not forward integration suffices
         elif (min(tsorted) < 0.0) & (max(tsorted) < 0.0):
-            print('ONLY backward integration required')
+            #print('ONLY backward integration required')
             
             tspan = ( 0.0 , min(tsorted) )
 
@@ -348,7 +346,7 @@ class nPNsolver:
 
         elif (min(tsorted) > 0.0) & (max(tsorted) > 0.0):
 
-            print('NO backward integration required')
+            #print('NO backward integration required')
 
             tspan = (     0.0     , max(tsorted) )
 
