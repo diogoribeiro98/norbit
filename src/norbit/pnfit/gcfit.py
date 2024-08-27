@@ -263,6 +263,69 @@ class nPNFitterGC:
         self.params.add('t0', expr='ti + t0_minus_ti',max=self.tmin)
 
         return
+    
+    def add_orbital_fit_parameters_tperi(self, Omega, inc, omega, sma, ecc, tperi, x0, y0, vx, vy, vz, m ,r0, tosc):
+
+        #Orbital parameters
+        self.params.add('Omega'  , value = Omega[0]   , vary=Omega[3],  min=Omega[1], max = Omega[2])
+        self.params.add('inc'    , value =   inc[0]   , vary=  inc[3],  min=  inc[1], max =   inc[2])
+        self.params.add('omega'  , value = omega[0]   , vary=omega[3],  min=omega[1], max = omega[2])
+        self.params.add('sma'    , value =   sma[0]   , vary=  sma[3],  min=  sma[1], max =   sma[2])
+        self.params.add('ecc'    , value =   ecc[0]   , vary=  ecc[3],  min=  ecc[1], max =   ecc[2])
+        
+        #Drift and offset parameters
+        self.params.add('x0'     , value =   x0[0], vary=    x0[3],  min=    x0[1], max =     x0[2])
+        self.params.add('y0'     , value =   y0[0], vary=    y0[3],  min=    y0[1], max =     y0[2])
+        self.params.add('vx'    , value =    vx[0], vary=    vx[3],  min=    vx[1], max =     vx[2])
+        self.params.add('vy'    , value =    vy[0], vary=    vy[3],  min=    vy[1], max =     vy[2])
+        self.params.add('vz'    , value =    vz[0], vary=    vz[3],  min=    vz[1], max =     vz[2])
+        
+        #GC 
+        self.params.add('m'      , value =     m[0]   , vary=    m[3],  min=    m[1], max =     m[2])
+        self.params.add('R0'     , value =    r0[0]   , vary=   r0[3],  min=   r0[1], max =    r0[2])
+
+        # Adding time constraints is not as trivial as this
+        # Check https://lmfit.github.io/lmfit-py/constraints.html
+        # to use asteval functions and check
+        # https://stackoverflow.com/questions/49931455/python-lmfit-constraints-a-b-c
+        # to implement multi bound constraints
+        #
+        # From the way our modeling works, we need to have the following constrains
+        #
+        #  tosc < tperi < tosc + Pkepler
+        #
+        # The Kepler period depends on the semi-major axis and the
+        # gravitational scale of the problem. We thus implement the following inequality:
+        #
+        # ti < t0 < tf <-> tosc < tperi < tosc + Pkepler
+        #
+        # and fit for the following two parameters (t0-ti) and (tf-t0). Since we know that these
+        # two parameters cannot be smaller than 0, we can contrain them accordingly. The individual
+        # parameters are then obtained from the associated expressions.
+        # 
+    
+        #Add tosculating
+        self.params.add('tosc', value=tosc, vary=False)
+
+        #Initial guesses
+        Pkepler = kepler_period( sma[0]*units.astronomical_unit/(m[0]*self.Rscale) )*(m[0]*self.Rscale)/units.c/units.year
+        t0_minus_ti_ival = tperi[0]- tosc
+        tf_minus_t0_ival = tosc + Pkepler - tperi[0] 
+        
+        #Helper quantities for fit
+        def kperiod(sma,m):
+            return kepler_period( sma*units.astronomical_unit/(m*self.Rscale) )*(m*self.Rscale)/units.c/units.year
+
+        self.params._asteval.symtable['tf'] = self.tmin
+        self.params._asteval.symtable['kperiod'] = kperiod
+    
+        self.params.add('t0_minus_ti', value=t0_minus_ti_ival,  vary=tperi[3], min=0)
+        self.params.add('tf_minus_t0', value=tf_minus_t0_ival,  vary=tperi[3], min=0)
+
+        self.params.add('tf', expr='tosc + kperiod(sma,m)')
+        self.params.add('tperi', expr='tf - tf_minus_t0')
+
+        return
 
     def residuals(self, params, model, 
                   ignore_NACO=False, 
