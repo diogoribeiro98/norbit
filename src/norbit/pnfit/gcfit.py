@@ -123,13 +123,13 @@ class nPNFitterGC:
         #If no data in one of the arrays, make then None
         if len(NACO)==0:
             has_naco = False
-            NACO=[None, None, None, None, None]
+            NACO=[[None], [None], [None], [None], [None]]
         if len(SINFONI)==0:
             has_sinfoni=False
-            SINFONI=[None,None,None]
+            SINFONI=[[None],[None],[None]]
         if len(GRAVITY)==0:
             has_gravity=False
-            GRAVITY=[None, None, None, None, None]
+            GRAVITY=[[None], [None], [None], [None], [None]]
 
         #Store data
         self.astrometric_data = {
@@ -163,7 +163,6 @@ class nPNFitterGC:
         #Get elapsed time since first measurement in order
         self.teval = np.concatenate((self.astrometric_data['NACO']['tdata'],self.astrometric_data['GRAVITY']['tdata'],self.spectroscopic_data['SINFONI']['tdata']))
         self.teval = np.sort(np.delete(self.teval,np.where(self.teval==None)))
-        #self.teval -= self.teval[0]
         
         return 
 
