@@ -337,33 +337,35 @@ class nPNFitterGC:
 
         #Get orbital parameters
         orbital_params = {
-        "Omega" : params['Omega']*np.pi/180,
-        "inc"   : params['inc']  *np.pi/180,
-        "omega" : params['omega']*np.pi/180,
-        "a"     : params['sma']  ,
-        "e"     : params['ecc']  ,
+        "Omega" : params['Omega'].value*np.pi/180,
+        "inc"   : params['inc'].value*np.pi/180,
+        "omega" : params['omega'].value*np.pi/180,
+        "a"     : params['sma'].value  ,
+        "e"     : params['ecc'].value  ,
         }
 
+        print('here:', params['ecc'].value)
+
         #Offset parameters
-        x0      = params['x0']
-        y0      = params['y0']
-        vx      = params['vx']
-        vy      = params['vy']
-        vz      = params['vz']
+        x0      = params['x0'].value
+        y0      = params['y0'].value
+        vx      = params['vx'].value
+        vy      = params['vy'].value
+        vz      = params['vz'].value
 
         #GC quantities
-        m = params['m']*self.Rscale
+        m = params['m'].value*self.Rscale
 
         gc_params = {
         "m"  : m,
-        "R0" : params['R0'],
-        'v_observer' : [(-3.156e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,vz]
+        "R0" : params['R0'].value,
+        'v_observer' : [(-3.156e-3*units.as_to_rad/units.year)*params['R0'].value*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0'].value*units.parsec/units.kilometer,vz]
         #'v_observer' : [0.0, 0.0, 0.0]
         }
             
         #Find integration times
-        tosc = params['tosc']
-        time_to_peri  = (params['tperi']-tosc)
+        tosc = params['tosc'].value
+        time_to_peri  = (params['tperi'].value-tosc)
         teval = (self.teval - tosc)
         
         #Get model data depending on the physical setup
@@ -457,8 +459,6 @@ class nPNFitterGC:
         #
         # Calculate residuals vector fromd data
         #
-
-        p = p_weight(s_weight)
         
         residuals_vector_x = 0
         residuals_vector_y = 0
@@ -469,8 +469,8 @@ class nPNFitterGC:
             xmodel_gravity = -fx((self.astrometric_data['GRAVITY']['tdata'] - tosc))  
             ymodel_gravity =  fy((self.astrometric_data['GRAVITY']['tdata'] - tosc))  
         
-            residuals_vector_x_gravity =  p((xmodel_gravity-self.astrometric_data['GRAVITY']['xdata'])/self.astrometric_data['GRAVITY']['xdata_err'])
-            residuals_vector_y_gravity =  p((ymodel_gravity-self.astrometric_data['GRAVITY']['ydata'])/self.astrometric_data['GRAVITY']['ydata_err'])
+            residuals_vector_x_gravity =  (xmodel_gravity-self.astrometric_data['GRAVITY']['xdata'])/self.astrometric_data['GRAVITY']['xdata_err']
+            residuals_vector_y_gravity =  (ymodel_gravity-self.astrometric_data['GRAVITY']['ydata'])/self.astrometric_data['GRAVITY']['ydata_err']
         else:
             residuals_vector_x_gravity = []
             residuals_vector_y_gravity = []
@@ -483,8 +483,8 @@ class nPNFitterGC:
             #Drift in data
             xdata_drift = self.astrometric_data['NACO']['xdata'] - ( x0 + vx * (self.astrometric_data['NACO']['tdata']-2009.02))
             ydata_drift = self.astrometric_data['NACO']['ydata'] - ( y0 + vy * (self.astrometric_data['NACO']['tdata']-2009.02))
-            residuals_vector_x_naco =  p((xmodel_naco-xdata_drift)/self.astrometric_data['NACO']['xdata_err'])
-            residuals_vector_y_naco =  p((ymodel_naco-ydata_drift)/self.astrometric_data['NACO']['ydata_err'])
+            residuals_vector_x_naco =  (xmodel_naco-xdata_drift)/self.astrometric_data['NACO']['xdata_err']
+            residuals_vector_y_naco =  (ymodel_naco-ydata_drift)/self.astrometric_data['NACO']['ydata_err']
             
         else:
             residuals_vector_x_naco = []
@@ -492,7 +492,7 @@ class nPNFitterGC:
 
         if self.spectroscopic_data['SINFONI']['hasData'] == True and ignore_SINFONI==False:
             vmodel_sinfoni = fv((self.spectroscopic_data['SINFONI']['tdata'] - tosc)) 
-            residuals_vector_v_sinfoni = p((vmodel_sinfoni-(self.spectroscopic_data['SINFONI']['vdata']))/self.spectroscopic_data['SINFONI']['vdata_err'])
+            residuals_vector_v_sinfoni = (vmodel_sinfoni-(self.spectroscopic_data['SINFONI']['vdata']))/self.spectroscopic_data['SINFONI']['vdata_err']
         
         else:
             residuals_vector_v_sinfoni = []
