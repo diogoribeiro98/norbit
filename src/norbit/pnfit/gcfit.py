@@ -327,12 +327,13 @@ class nPNFitterGC:
         return
 
     def residuals(self, params, model, 
+                  priors = {}, 
                   ignore_NACO=False, 
                   ignore_GRAVITY=False, 
                   ignore_SINFONI=False, 
                   s_weight=0.0,
                   fit_window=1.0,
-                  window_resolution=1.0):
+                  window_npoints=10):
 
         #Get orbital parameters
         orbital_params = {
@@ -342,8 +343,6 @@ class nPNFitterGC:
         "a"     : params['sma']  ,
         "e"     : params['ecc']  ,
         }
-
-        t0 = params['t0']
 
         #Offset parameters
         x0      = params['x0']
@@ -358,87 +357,96 @@ class nPNFitterGC:
         gc_params = {
         "m"  : m,
         "R0" : params['R0'],
-        #'v_observer' : [(-3.156e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,0.0]
-        'v_observer' : [0.0, 0.0, 0.0]
+        'v_observer' : [(-3.156e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0']*units.parsec/units.kilometer,vz]
+        #'v_observer' : [0.0, 0.0, 0.0]
         }
-    
-        Pkepler = kepler_period(params['sma'].value*units.astronomical_unit/m)*m/units.c/units.year
-        integration_max_time = (2*Pkepler + self.tdata_span)
-
+            
         #Find integration times
-        teval = (self.teval - t0)
-
-        #Get model data depending on the model
+        tosc = params['tosc']
+        time_to_peri  = (params['tperi']-tosc)
+        teval = (self.teval - tosc)
+        
+        #Get model data depending on the physical setup
         match model:
+            
             case 'Newton':
-                sol = self.orb.get_sky_projection_fit(   
+                #Purely Newtonian orbit without light travel time
+                sol = self.orb.get_sky_projection_fit_ts(   
                     **orbital_params, **gc_params,
+                    time_to_peri=time_to_peri,
                     orbit_pncor=False,
                     light_pncor=False,
                     light_travel_time=False,
                     gr_redshift=False,
                     sr_redshift=False,
                     metric=minkowsky_metric,
-                    tmax = integration_max_time, 
                     interpolation_window = fit_window,             #in days
-                    interpolation_window_resolution = window_resolution, #in days
+                    interpolation_window_npoints= window_npoints, #in days
                     tdata = teval)
-                
-                
-            case 'Schwarzschild':
-                sol = self.orb.get_sky_projection_fit(   
+            
+            case 'Newton+Romer':
+                # Newtonian orbit with light travel time
+                sol = self.orb.get_sky_projection_fit_ts(   
                     **orbital_params, **gc_params,
+                    time_to_peri=time_to_peri,
+                    orbit_pncor=False,
+                    light_pncor=False,
+                    light_travel_time=True,
+                    gr_redshift=False,
+                    sr_redshift=False,
+                    metric=minkowsky_metric,
+                    interpolation_window = fit_window,             #in days
+                    interpolation_window_npoints= window_npoints, #in days
+                    tdata = teval)
+            
+            case 'Newton+Romer+SR':
+                # Newtonian orbit with light travel time and special relativity effects
+                sol = self.orb.get_sky_projection_fit_ts(   
+                    **orbital_params, **gc_params,
+                    time_to_peri=time_to_peri,
+                    orbit_pncor=False,
+                    light_pncor=False,
+                    light_travel_time=True,
+                    gr_redshift=False,
+                    sr_redshift=True,
+                    metric=minkowsky_metric,
+                    interpolation_window = fit_window,             #in days
+                    interpolation_window_npoints= window_npoints, #in days
+                    tdata = teval)
+            
+            case 'Schwarzschild':
+                #Full 1PN equations of motion for Schwarzschild coordinates
+                sol = self.orb.get_sky_projection_fit_ts(   
+                    **orbital_params, **gc_params,
+                    time_to_peri=time_to_peri,
                     orbit_pncor=True,
                     light_pncor=True,
                     light_travel_time=True,
                     gr_redshift=True,
                     sr_redshift=True,
                     metric=schwarzschild_metric,
-                    tmax = integration_max_time, 
                     interpolation_window = fit_window,             #in days
-                    interpolation_window_resolution = window_resolution, #in days
+                    interpolation_window_npoints= window_npoints, #in days
                     tdata = teval)
+            
+            case 'coco':
+                #Code comparison mode
+                sol = self.orb.get_sky_projection_fit_code_comparison(
+                    **orbital_params, **gc_params,
+                    time_to_peri=time_to_peri,
+                    orbit_pncor=False,
+                    light_pncor=False,
+                    light_travel_time=True,
+                    gr_redshift=True,
+                    sr_redshift=True,
+                    metric=minkowsky_metric,
+                    interpolation_window = fit_window,             
+                    interpolation_window_npoints= window_npoints, 
+                    tdata = teval )
+
+
             case _:
                 raise ValueError('CRITICAL ERROR: How did you get here?')
-            
-        '''
-            case 'Harmonic':
-
-                metric = _metric( 
-                    A = (lambda x :  ((2*x-1)/(2*x+1))**2 ),
-                    B = (lambda x :  (1+1/(2*x))**4) ,
-                    D = (lambda x :  0 ),
-                )
-
-                sol = get_sky_projection_fit( **orbital_params, **gc_params,
-                                 tmax = integration_max_time, 
-                                 pn_coefficients_1st_order = np.array([-1, -1, 0, 4]),
-                                 pn_coefficients_2nd_order = np.array([4, 0, 2, -2]),
-                                 orbit_pncor = True, 
-                                 light_pncor = True,
-                                 metric=metric,
-                                 v_observer = vz,
-                                 time_resolution=model_resolution)
-                
-            case 'fsp':
-
-                metric = _metric( 
-                    A = (lambda x :  1-2/x),
-                    B = (lambda x :  1) ,
-                    D = (lambda x :  (2/x)/(1-2/x)) ,
-                )
-
-                fsp = params['fsp']
-                sol = get_sky_projection( **orbital_params, **gc_params,
-                                tmax = integration_max_time,
-                                pn_coefficients_1st_order = np.array([-1, -1*fsp, 0, 4*fsp]),
-                                pn_coefficients_2nd_order = np.array([4*fsp, 0, 2, -2]), 
-                                orbit_pncor = True, 
-                                light_pncor = False,
-                                metric=metric,
-                                v_observer = vz,
-                                time_resolution=model_resolution)
-        '''
             
         self.minimize_sol = sol
         
@@ -458,8 +466,8 @@ class nPNFitterGC:
 
         if self.astrometric_data['GRAVITY']['hasData'] == True and ignore_GRAVITY==False:
         
-            xmodel_gravity = -fx((self.astrometric_data['GRAVITY']['tdata'] - t0))  
-            ymodel_gravity =  fy((self.astrometric_data['GRAVITY']['tdata'] - t0))  
+            xmodel_gravity = -fx((self.astrometric_data['GRAVITY']['tdata'] - tosc))  
+            ymodel_gravity =  fy((self.astrometric_data['GRAVITY']['tdata'] - tosc))  
         
             residuals_vector_x_gravity =  p((xmodel_gravity-self.astrometric_data['GRAVITY']['xdata'])/self.astrometric_data['GRAVITY']['xdata_err'])
             residuals_vector_y_gravity =  p((ymodel_gravity-self.astrometric_data['GRAVITY']['ydata'])/self.astrometric_data['GRAVITY']['ydata_err'])
@@ -469,8 +477,8 @@ class nPNFitterGC:
 
         if self.astrometric_data['NACO']['hasData'] == True and ignore_NACO==False:
 
-            xmodel_naco = -fx((self.astrometric_data['NACO']['tdata'] - t0))  
-            ymodel_naco =  fy((self.astrometric_data['NACO']['tdata'] - t0))  
+            xmodel_naco = -fx((self.astrometric_data['NACO']['tdata'] - tosc))  
+            ymodel_naco =  fy((self.astrometric_data['NACO']['tdata'] - tosc))  
             
             #Drift in data
             xdata_drift = self.astrometric_data['NACO']['xdata'] - ( x0 + vx * (self.astrometric_data['NACO']['tdata']-2009.02))
@@ -483,7 +491,7 @@ class nPNFitterGC:
             residuals_vector_y_naco = []
 
         if self.spectroscopic_data['SINFONI']['hasData'] == True and ignore_SINFONI==False:
-            vmodel_sinfoni = fv((self.spectroscopic_data['SINFONI']['tdata'] - t0)) 
+            vmodel_sinfoni = fv((self.spectroscopic_data['SINFONI']['tdata'] - tosc)) 
             residuals_vector_v_sinfoni = p((vmodel_sinfoni-(self.spectroscopic_data['SINFONI']['vdata']))/self.spectroscopic_data['SINFONI']['vdata_err'])
         
         else:
@@ -497,33 +505,13 @@ class nPNFitterGC:
         # Residuals from priors
         #
 
-        #NACO flares
-        x0prior     =   [-0.17624348, -0.16]
-        x0prior_err =   [ 0.10743265,  0.17]
-        y0prior     =   [ 0.86980712,  0.08]
-        y0prior_err =   [ 0.13880362,  0.17]
-        vxprior     =   [-0.00230551, -0.04]
-        vxprior_err =   [ 0.02716948,  0.08]
-        vyprior     =   [-0.02640035, -0.01]
-        vyprior_err =   [ 0.03589139,  0.07] 
-        
-        prior_NACO_flares = [
-            (x0 - x0prior[0])/x0prior_err[0] , 
-            (y0 - y0prior[0])/y0prior_err[0] ,
-            (vx - vxprior[0])/vxprior_err[0] ,
-            (vy - vyprior[0])/vyprior_err[0] ]  
-
-        prior_PLEWA = [
-            (x0 - x0prior[1])/x0prior_err[1] , 
-            (y0 - y0prior[1])/y0prior_err[1] ,
-            (vx - vxprior[1])/vxprior_err[1] ,
-            (vy - vyprior[1])/vyprior_err[1] ]  
-
-        prior_vz = [vz/5.]
+        prior_chi2 = []
+        for prior in priors.values():
+            for idx, parameter in enumerate(prior['parameter']):
+                prior_chi2.append( (params[parameter] - prior['prior'][idx])/prior['error'][idx] )
 
         
-        #residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_NACO_flares, prior_PLEWA),axis=0)
-        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v),axis=0)
+        residuals_vector = np.concatenate((residuals_vector_x,residuals_vector_y,residuals_vector_v, prior_chi2 ),axis=0)
         
         return residuals_vector
 
@@ -534,21 +522,29 @@ class nPNFitterGC:
                     ignore_GRAVITY=False, 
                     ignore_SINFONI=False, 
                     s_weight=0.0, 
+                    priors = {},
                     method='leastsq',
                     window=2.0,                     
-                    model_resolution=0.25):
+                    window_npoints=10):
 
-        implemented_models = ('Newton', 'Schwarzschild', 'Harmonic', 'fsp')
+        #print('Starting finding minimum routine')
+        implemented_models = ('coco', 
+                              'Newton', 
+                              'Newton+Romer', 
+                              'Newton+Romer+SR', 
+                              'Schwarzschild')
+        
         if model in implemented_models:
 
-            func_args = {'model': model, 
-                                         'ignore_NACO': ignore_NACO, 
-                                         'ignore_GRAVITY': ignore_GRAVITY, 
-                                         'ignore_SINFONI': ignore_SINFONI, 
-                                         's_weight': s_weight, 
-                                         'window_resolution': model_resolution,
-                                         'fit_window': window
-                                         }
+            func_args = {   'model': model, 
+                            'ignore_NACO': ignore_NACO, 
+                            'ignore_GRAVITY': ignore_GRAVITY, 
+                            'ignore_SINFONI': ignore_SINFONI, 
+                            's_weight': s_weight,
+                            'priors' : priors, 
+                            'window_npoints': window_npoints,
+                            'fit_window': window
+                        }
 
             fitter = Minimizer( self.residuals, 
                                 self.params, 
@@ -575,14 +571,14 @@ class nPNFitterGC:
                 s_weight=0.0,
                 method='leastsq',
                 window=2.0,                     
-                model_resolution=0.25):
+                window_npoints=10):
         
         func_args = {  'model': model, 
                         'ignore_NACO': ignore_NACO, 
                         'ignore_GRAVITY': ignore_GRAVITY, 
                         'ignore_SINFONI': ignore_SINFONI, 
                         's_weight': s_weight, 
-                        'window_resolution': model_resolution,
+                        'window_resolution': window_npoints,
                         'fit_window': window
                         }
 
