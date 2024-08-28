@@ -1,9 +1,6 @@
 import numpy as np 
 from scipy.integrate import solve_ivp
 
-from ..vector.vector_class import vec3
-from ..vector.vector_functions import dot, norm, cross
-
 from .metric import metric, schwarzschild_metric, minkowsky_metric 
 
 class _solver_output:
@@ -55,12 +52,12 @@ class nPNsolver:
         self.H3 =  metric.pn_coefficients_3rd_order[3]
 
         #Initial position
-        self.r_ini = vec3(initial_position)
-        self.v_ini = vec3(initial_velocity)
+        self.r_ini = np.array(initial_position)
+        self.v_ini = np.array(initial_velocity)
 
         #Current position
-        self.r = vec3(initial_position)
-        self.v = vec3(initial_velocity)
+        self.r = np.array(initial_position)
+        self.v = np.array(initial_velocity)
 
         self.metric = metric
 
@@ -71,15 +68,15 @@ class nPNsolver:
     def newtonForce(self):
         """ Classical Newtonian force law
         """
-        Fnewton = - self.m * self.r / self.r.norm()**3
+        Fnewton = - self.m * self.r / np.linalg.norm(self.r)**3
         return Fnewton
 
     def pnForce(self):
         """PN order corrections to classical newtonian force
         """
-        rnorm = self.r.norm()
-        vnorm = self.v.norm()
-        ForcePN1 = 1/rnorm**3 *( (self.T2/rnorm + self.V1 *vnorm**2  + self.N1*(dot(self.r , self.v)/rnorm)**2 )*self.r + self.H1 * dot(self.r , self.v) *self.v)                     
+        rnorm = np.linalg.norm(self.r)
+        vnorm = np.linalg.norm(self.v)
+        ForcePN1 = 1/rnorm**3 *( (self.T2/rnorm + self.V1 *vnorm**2  + self.N1*(np.dot(self.r , self.v)/rnorm)**2 )*self.r + self.H1 * np.dot(self.r , self.v) *self.v)                     
         #ForcePN2 = 1/rnorm**4 *( (self.T3/rnorm + self.V2 *vnorm**2  + self.N2*(dot(self.r , self.v)/rnorm)**2 )*self.r + self.H2 * dot(self.r , self.v) *self.v)                     
         
         return ForcePN1 #+ForcePN2
@@ -96,12 +93,12 @@ class nPNsolver:
         x, y, z    = state[0] , state[1] , state[2] 
         vx, vy, vz = state[3] , state[4] , state[5]
 
-        self.r = vec3([x,y,z])
-        self.v = vec3([vx,vy,vz])
+        self.r = state[0:3]
+        self.v = state[3:6]
         
         Force = self.Force()
 
-        return [ vx , vy , vz, Force.x, Force.y, Force.z ]
+        return [ vx , vy , vz, Force[0], Force[1], Force[2] ]
  
     #=========================
     # Integration methods
@@ -170,7 +167,7 @@ class nPNsolver:
             neg_result = solve_ivp(
                     self.EOM, 
                     neg_tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],
                     method='RK45',
                     t_eval=neg_teval,
                     rtol=rtol,
@@ -182,7 +179,7 @@ class nPNsolver:
             pos_result = solve_ivp(
                     self.EOM, 
                     pos_tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],
                     method='RK45',
                     t_eval=pos_teval,
                     rtol=rtol,
@@ -210,7 +207,7 @@ class nPNsolver:
             result = solve_ivp(
                     self.EOM, 
                     tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],
                     method='RK45',
                     t_eval=t,
                     rtol=rtol,
@@ -232,7 +229,7 @@ class nPNsolver:
             result = solve_ivp(
                     self.EOM, 
                     tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],                    
                     method='RK45',
                     t_eval=t,
                     rtol=rtol,
@@ -289,7 +286,7 @@ class nPNsolver:
             neg_result = solve_ivp(
                     self.EOM, 
                     neg_tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],                    
                     method='RK45',
                     t_eval=neg_teval,
                     rtol=rtol,
@@ -301,7 +298,7 @@ class nPNsolver:
             pos_result = solve_ivp(
                     self.EOM, 
                     pos_tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],                    
                     method='RK45',
                     t_eval=pos_teval,
                     rtol=rtol,
@@ -331,7 +328,7 @@ class nPNsolver:
             result = solve_ivp(
                     self.EOM, 
                     tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],                    
                     method='RK45',
                     t_eval=tsorted,
                     rtol=rtol,
@@ -353,7 +350,7 @@ class nPNsolver:
             result = solve_ivp(
                     self.EOM, 
                     tspan ,
-                    [ self.r_ini.x , self.r_ini.y , self.r_ini.z , self.v_ini.x , self.v_ini.y , self.v_ini.z  ],
+                    [ self.r_ini[0] , self.r_ini[1] , self.r_ini[2] , self.v_ini[0] , self.v_ini[1] , self.v_ini[2] ],                    
                     method='RK45',
                     t_eval=tsorted,
                     rtol=rtol,
@@ -375,23 +372,23 @@ class nPNsolver:
 
         #Distance vector from observer to emission point
         D = (rf-ri)
-        Dnorm = norm(D)
+        Dnorm = np.linalg.norm(D)
         nD = D/Dnorm
 
         if pncor == False:
             return int(light_travel_time)*Dnorm , nD  
         else:
             #Angular momentum of photon orbit
-            L     = cross(ri,rf)
+            L     = np.cross(ri,rf)
             #Lnorm = norm(L)
 
             #Impact parameter
-            b = cross(D , L)/Dnorm**2
-            bnorm = norm(b)
+            b = np.cross(D , L)/Dnorm**2
+            bnorm = np.linalg.norm(b)
 
             #Normalized vectors or observer and emitter
-            rinorm = norm(ri)
-            rfnorm = norm(rf)
+            rinorm = np.linalg.norm(ri)
+            rfnorm = np.linalg.norm(rf)
             nri    = ri/rinorm
             nrf    = rf/rfnorm
 
@@ -400,10 +397,10 @@ class nPNsolver:
 
             #1st order corrections
             pn1_dx1_parallel        =  ( -(self.T1 + self.V1 + self.N1 + self.H1)/rfnorm + (self.N1/3) * (bnorm**2/rfnorm**3) ) * nD
-            pn1_dx1_perpendicular   =  (  (self.T1 + self.V1)*( dot(nrf,nD) + 1 ) + (self.N1/3)*(dot(nrf,nD)**3 +1) )*b/bnorm**2
+            pn1_dx1_perpendicular   =  (  (self.T1 + self.V1)*( np.dot(nrf,nD) + 1 ) + (self.N1/3)*(np.dot(nrf,nD)**3 +1) )*b/bnorm**2
 
             pn1_x1_perpendicular    = -(1/Dnorm)*(  (self.T1 + self.V1 +self.N1/3)*( rfnorm - rinorm + Dnorm )/bnorm**2 + (self.N1/3)*(1/rfnorm - 1/rinorm) )*b
-            pn1_x1_parallel_scalar  = -( -(self.T1 + self.V1 + self.N1 + self.H1)*np.log( (rfnorm/rinorm)*( dot(nrf,nD) + 1 )/( dot(nri,nD) + 1 )) + (self.N1/3) * ( dot(nrf,nD) - dot(nri,nD))  )
+            pn1_x1_parallel_scalar  = -( -(self.T1 + self.V1 + self.N1 + self.H1)*np.log( (rfnorm/rinorm)*( np.dot(nrf,nD) + 1 )/( np.dot(nri,nD) + 1 )) + (self.N1/3) * ( np.dot(nrf,nD) - np.dot(nri,nD))  )
 
             #Light deflection vector at the observer position
             dxdtau    = pn0 + pn1_dx1_parallel + pn1_dx1_perpendicular + pn1_x1_perpendicular
@@ -414,29 +411,29 @@ class nPNsolver:
             return int(light_travel_time)*delta_tau , dxdtau 
 
     def dAdr(self,r,v,sigma):    
-        n = r/norm(r)
-        t1 = (self.N1/3)*dot(v, cross(n,cross(sigma,n)))/norm(r)
-        t2 = -(self.T1 + self.V1 + self.N1 + self.H1)* dot(v,sigma+n)/( norm(r) *(1+dot(n,sigma)))
+        n = r/np.linalg.norm(r)
+        t1 = (self.N1/3)*np.dot(v, np.cross(n,np.cross(sigma,n)))/np.linalg.norm(r)
+        t2 = -(self.T1 + self.V1 + self.N1 + self.H1)* np.dot(v,sigma+n)/( np.linalg.norm(r) *(1+np.dot(n,sigma)))
 
         return t1+t2
     
     def dtdt0(self,ri,rf,vi,vf):
         
         D = (rf-ri)
-        Dnorm = norm(D)
+        Dnorm = np.linalg.norm(D)
         nD = D/Dnorm
 
-        return 1/(1 - dot(nD,vf-vi)+ self.m*(self.dAdr(rf,vf,nD) - self.dAdr(ri,vi,nD)) )  
+        return 1/(1 - np.dot(nD,vf-vi)+ self.m*(self.dAdr(rf,vf,nD) - self.dAdr(ri,vi,nD)) )  
     
     def get_redshift_velocity(self,ri,rf,vi,vf, sr_redshift=True, gr_redshift=True):
 
         D = (rf-ri)
-        Dnorm = norm(D)
+        Dnorm = np.linalg.norm(D)
         nD = D/Dnorm
 
         #If no GR nor SR effects are considered, return the 'galilean' redshift
         if gr_redshift==False and sr_redshift==False:
-            return dot(nD,vf-vi)
+            return np.dot(nD,vf-vi)
 
         #If we wish to consider uniquely the GR effects we need only evaluate the difference in the gtt metric components
         elif gr_redshift==True and sr_redshift==False:
@@ -450,7 +447,7 @@ class nPNsolver:
         elif gr_redshift==False and sr_redshift==True:
             dsdt_f = self.metric.redshift_factor(rf,vf,gr_effects=False)
             dsdt_i = self.metric.redshift_factor(ri,vi,gr_effects=False)
-            return np.sqrt(dsdt_f/dsdt_i)/(1 - dot(nD,vf-vi))-1
+            return np.sqrt(dsdt_f/dsdt_i)/(1 - np.dot(nD,vf-vi))-1
 
         #If all effects are considered, we must evaluate the full expression for the redshift
         else:

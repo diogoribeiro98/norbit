@@ -1,7 +1,31 @@
 import numpy as np
 from .kepler_period import kepler_period
-from ..vector import vec3, cross, norm
 from scipy import optimize
+
+def rotate_along(ivec, axis, theta):
+		""" Rotates the vector perpendicularly to the input vector according to the right hand rule using Rodrigues' rule. 
+		See 'https://mathworld.wolfram.com/RodriguesRotationFormula.html'
+
+		Args:
+			vector vec3: Axis vector
+			theta float: Rotation angle in radians
+
+		Returns:
+			vec3 : rotated vector
+		"""
+		w = axis/np.linalg.norm(axis)
+
+		c = np.cos(theta)
+		s = np.sin(theta)
+
+		#Define the rotation matrix
+		mat = np.array([ 
+			[       c + w[0]*w[0]*(1-c) , -w[2]*s + w[1]*w[0]*(1-c)  ,  w[1]*s + w[2]*w[0]*(1-c) ] ,
+			[  w[2]*s + w[0]*w[1]*(1-c) ,      c + w[1]*w[1]*(1-c)  , -w[0]*s + w[2]*w[1]*(1-c)],
+			[ -w[1]*s + w[0]*w[2]*(1-c) ,  w[0]*s + w[1]*w[2]*(1-c)  ,      c + w[2]*w[2]*(1-c)]
+		])
+
+		return np.dot(mat,ivec)
 
 def get_angular_momentum_vector(Omega,inc):
     """Returns the angular momentum vector associated with the specified orbital elements
@@ -13,8 +37,7 @@ def get_angular_momentum_vector(Omega,inc):
     Returns:
         vec3: Angular momentum vector
     """
-    return vec3([ np.sin(inc)*np.cos(Omega) , -np.sin(inc)*np.sin(Omega) , -np.cos(inc)  ])
-
+    return np.array([ np.sin(inc)*np.cos(Omega) , -np.sin(inc)*np.sin(Omega) , -np.cos(inc)  ])
 
 def get_apocenter_position_and_velocity(a, e):
     """Returns the apocenter distance and associated velocity for the specified orbital elements
@@ -58,7 +81,6 @@ def get_pericenter_position_and_velocity(a,e):
     
     return r_peri, v_peri
 
-
 def get_apocenter_unit_vectors(Omega, inc, omega):
     """Returns the apocenter unit vector and and associated velocity unit vector for the specified orbital elements
 
@@ -79,17 +101,16 @@ def get_apocenter_unit_vectors(Omega, inc, omega):
     L_vec = get_angular_momentum_vector(Omega,inc)
     
     #Line of ascending nodes unit vector
-    anode = vec3([np.sin(Omega),np.cos(Omega),0])
+    anode = np.array([np.sin(Omega),np.cos(Omega),0])
 
     #Radial direction
-    nr_peri = anode.rotate_along(L_vec,omega)
+    nr_peri = rotate_along(anode,L_vec,omega)
     nr_apo = (-1)*nr_peri
     
     #Velocity direction
-    nv_apo = cross(L_vec,nr_apo)
+    nv_apo = np.cross(L_vec,nr_apo)
 
     return nr_apo, nv_apo
-
 
 def get_pericenter_unit_vectors(Omega, inc, omega):
     """Returns the pericenter unit vector and and associated velocity unit vector for the specified orbital elements
@@ -112,13 +133,13 @@ def get_pericenter_unit_vectors(Omega, inc, omega):
     L_vec = get_angular_momentum_vector(Omega,inc)
     
     #Line of ascending nodes unit vector
-    anode = vec3([np.sin(Omega),np.cos(Omega),0])
+    anode = np.array([np.sin(Omega),np.cos(Omega),0])
 
     #Radial direction
-    nr_peri = anode.rotate_along(L_vec,omega)
+    nr_peri = rotate_along(anode,L_vec,omega)
     
     #Velocity direction
-    nv_apo = cross(L_vec,nr_peri)
+    nv_apo = np.cross(L_vec,nr_peri)
 
     return nr_peri, nv_apo
 
@@ -127,7 +148,6 @@ def get_pericenter_unit_vectors(Omega, inc, omega):
 #
 
 #John Machin's method for the inital guess
-
 def solve_cubic(a, c, d):
     
     assert(a > 0 and c > 0)
@@ -148,21 +168,24 @@ def machin(e, M):
     s = solve_cubic(a, c, d)
     return n*np.arcsin(s)    
 
+def f(E,e,M):
+     return E - e*np.sin(E) - M 
+
+def fprime(E,e,M):
+     return 1 - e*np.cos(E) 
+
 def eccentric_anomaly(e, M):
     "Find E such that M = E - e sin E."
    
     assert(0 <= e < 1)
-  
-    f = lambda E: E - e*np.sin(E) - M 
-    fprime = lambda E: 1 - e*np.cos(E) 
-    
+   
     #Initial guess
-    E = M 
+    #E = M 
 
     #Note: if a better guess is needed, use the following line instead
-    #E = machin(e, M) 
+    E = machin(e, M) 
 
-    E = optimize.newton(f,E,fprime=fprime, maxiter=500, rtol=1e-13)
+    E = optimize.newton(f,E,fprime=fprime, maxiter=500, rtol=1e-13, args=(e,M,))
 
     return E
 

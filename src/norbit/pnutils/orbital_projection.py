@@ -124,7 +124,7 @@ class orbital_projection():
             r_apo_vec = r_apo_norm*nr_apo
             v_apo_vec = v_apo_norm*nv_apo
 
-        v_obs = vec3(v_observer)*1000/units.c
+        v_obs = v_observer*1000/units.c
 
         #Maximum integration time in code units
         if tmax == None:
@@ -172,10 +172,10 @@ class orbital_projection():
             vz = solution.vz[itt]
 
             #Get light reception angle and corresponding time delay
-            deltat, light_vec = ode.deflection_position(ri=vec3([x,y,z]),rf=r_observer ,pncor=light_pncor, light_travel_time=light_travel_time)
+            deltat, light_vec = ode.deflection_position(ri=np.asarray([x,y,z]),rf=r_observer ,pncor=light_pncor, light_travel_time=light_travel_time)
 
             #Get corrected velocity (with redshift)
-            v_redshift = ode.get_redshift_velocity(vec3([x,y,z]), r_observer, vec3([vx,vy,vz]), v_obs, sr_redshift=sr_redshift, gr_redshift=gr_redshift)
+            v_redshift = ode.get_redshift_velocity(np.asarray([x,y,z]), r_observer, np.asarray([vx,vy,vz]), v_obs, sr_redshift=sr_redshift, gr_redshift=gr_redshift)
             
             #Append to lists
             time    .append(t+deltat)    
@@ -266,13 +266,13 @@ class orbital_projection():
         time_to_peri *= units.year/(m/units.c)
         
         r_observer = -R0*nr 
-        v_obs = vec3(v_observer)*1000/units.c
+        v_obs = v_observer*1000/units.c
         rini, vini = get_position_and_velocity_at_t0(-time_to_peri,a,e,Omega,inc,omega)
-                
+
         #Define integral problem
         ode = nPNsolver(
-            initial_position= rini.values,
-            initial_velocity= vini.values,
+            initial_position= rini,
+            initial_velocity= vini,
             metric=metric)
 
         #Time resolution for evaluations
@@ -305,15 +305,15 @@ class orbital_projection():
             vz = sol.vz[itt]
 
             #Get light reception angle and corresponding time delay
-            deltat, light_vec = ode.deflection_position(ri=vec3([x,y,z]),rf=r_observer ,pncor=light_pncor, light_travel_time=light_travel_time)
+            deltat, light_vec = ode.deflection_position(ri=np.asarray([x,y,z]),rf=r_observer ,pncor=light_pncor, light_travel_time=light_travel_time)
 
             #Get corrected velocity (with redshift)
-            v_redshift = ode.get_redshift_velocity(vec3([x,y,z]), r_observer, vec3([vx,vy,vz]), v_obs, sr_redshift=sr_redshift, gr_redshift=gr_redshift)
+            v_redshift = ode.get_redshift_velocity(np.asarray([x,y,z]), r_observer, np.asarray([vx,vy,vz]), v_obs, sr_redshift=sr_redshift, gr_redshift=gr_redshift)
             
             #Append to lists
             time    .append(t+deltat)    
-            alpha   .append( dot(light_vec, na)/dot(light_vec, nr) * units.rad_to_as)
-            beta    .append( dot(light_vec, nb)/dot(light_vec, nr) * units.rad_to_as)
+            alpha   .append( np.dot(light_vec, na)/np.dot(light_vec, nr) * units.rad_to_as)
+            beta    .append( np.dot(light_vec, nb)/np.dot(light_vec, nr) * units.rad_to_as)
             vrs     .append(v_redshift)
 
             # This next line corresponds to the simplistic version of the projection when

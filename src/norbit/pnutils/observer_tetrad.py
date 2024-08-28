@@ -1,5 +1,4 @@
 import numpy as np
-from ..vector.vector_class import vec3
 
 def get_observer_tetrad(theta_g_deg , phi_g_deg):
     """ 
@@ -29,15 +28,15 @@ def get_observer_tetrad(theta_g_deg , phi_g_deg):
     phi_g   =  np.deg2rad(phi_g_deg)
     
     #Observer basis vectors
-    nr = vec3([ -np.cos(theta_g)*np.sin(phi_g)   ,
+    nr = np.array([ -np.cos(theta_g)*np.sin(phi_g)   ,
                 -np.sin(theta_g)                 ,
                 -np.cos(theta_g)*np.cos(phi_g)   ])
 
-    nb = vec3([ -np.sin(theta_g)*np.sin(phi_g)   ,
+    nb = np.array([ -np.sin(theta_g)*np.sin(phi_g)   ,
                  np.cos(theta_g)                  ,
                 -np.sin(theta_g)*np.cos(phi_g)   ])
 
-    na = vec3([  np.cos(phi_g)  ,
+    na = np.array([  np.cos(phi_g)  ,
                  0              ,
                 -np.sin(phi_g)   ])
 

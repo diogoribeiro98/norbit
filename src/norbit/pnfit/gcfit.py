@@ -344,7 +344,6 @@ class nPNFitterGC:
         "e"     : params['ecc'].value  ,
         }
 
-        print('here:', params['ecc'].value)
 
         #Offset parameters
         x0      = params['x0'].value
@@ -359,7 +358,7 @@ class nPNFitterGC:
         gc_params = {
         "m"  : m,
         "R0" : params['R0'].value,
-        'v_observer' : [(-3.156e-3*units.as_to_rad/units.year)*params['R0'].value*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0'].value*units.parsec/units.kilometer,vz]
+        'v_observer' : np.asarray([(-3.156e-3*units.as_to_rad/units.year)*params['R0'].value*units.parsec/units.kilometer,(-5.585e-3*units.as_to_rad/units.year)*params['R0'].value*units.parsec/units.kilometer,vz])
         #'v_observer' : [0.0, 0.0, 0.0]
         }
             

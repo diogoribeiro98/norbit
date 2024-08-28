@@ -1,4 +1,3 @@
-from ..vector import vec3, dot, norm
 import numpy as np
 
 class metric:
@@ -33,16 +32,15 @@ class metric:
             _type_: _description_
         """
   
-        r  = norm(r_vec)
-        v  = norm(v_vec)
+        r  = np.linalg.norm(r_vec)
+        v  = np.linalg.norm(v_vec)
 
-        nr = r_vec/norm(r_vec) 
+        nr = r_vec/np.linalg.norm(r_vec) 
 
         if gr_effects==False:
-            return -minkowsky_metric.A(r) + v**2*minkowsky_metric.B(r) + dot(nr,v_vec)**2*minkowsky_metric.D(r)
+            return -minkowsky_metric.A(r) + v**2*minkowsky_metric.B(r) + np.dot(nr,v_vec)**2*minkowsky_metric.D(r)
         else:
-            return -self.A(r) + v**2*self.B(r) + dot(nr,v_vec)**2*self.D(r)
-
+            return -self.A(r) + v**2*self.B(r) + np.dot(nr,v_vec)**2*self.D(r)
 
 #Standard metrics
 minkowsky_metric = metric(
