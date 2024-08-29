@@ -9,6 +9,8 @@ from .file_reading_utils import get_line_index, readlines_from_to
 
 from ..pnutils.metric import minkowsky_metric, schwarzschild_metric
 
+from ..pnutils.PNnumba import get_sky_projection_fit_ts_numba
+
 def p_weight(s):
     if s==0:
         return lambda r : r
@@ -429,7 +431,21 @@ class nPNFitterGC:
                     interpolation_window = fit_window,             #in days
                     interpolation_window_npoints= window_npoints, #in days
                     tdata = teval)
-            
+                
+            case 'numba':
+                   sol = get_sky_projection_fit_ts_numba(   
+                    **orbital_params, **gc_params,
+                    time_to_peri=time_to_peri,
+                    orbit_pncor=True,
+                    light_pncor=True,
+                    light_travel_time=True,
+                    gr_redshift=True,
+                    sr_redshift=True,
+                    metric=schwarzschild_metric,
+                    interpolation_window = fit_window,             #in days
+                    interpolation_window_npoints= window_npoints, #in days
+                    tdata = teval)
+                
             case 'coco':
                 #Code comparison mode
                 sol = self.orb.get_sky_projection_fit_code_comparison(
@@ -531,7 +547,8 @@ class nPNFitterGC:
                               'Newton', 
                               'Newton+Romer', 
                               'Newton+Romer+SR', 
-                              'Schwarzschild')
+                              'Schwarzschild',
+                              'numba')
         
         if model in implemented_models:
 
